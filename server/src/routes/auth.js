@@ -8,7 +8,7 @@ const router = express.Router();
 
 router.post('/register', async (req, res) => {
   try {
-    const { username, password, publicKey } = req.body;
+    const { username, password, publicKey, encryptedPrivateKey, keySalt, keyNonce } = req.body;
 
     if (!username || !password) {
       return res.status(400).json({ error: 'Username and password are required' });
@@ -32,8 +32,10 @@ router.post('/register', async (req, res) => {
 
     try {
       await pool.query(
-        'INSERT INTO users (id, username, password_hash, public_key) VALUES ($1, $2, $3, $4)',
-        [userId, username, passwordHash, publicKey || null]
+        `INSERT INTO users (id, username, password_hash, public_key, encrypted_private_key, key_salt, key_nonce)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [userId, username, passwordHash, publicKey || null,
+         encryptedPrivateKey || null, keySalt || null, keyNonce || null]
       );
     } catch (insertErr) {
       if (insertErr.code === '23505') {
@@ -86,6 +88,9 @@ router.post('/login', async (req, res) => {
     res.json({
       token,
       user: { id: user.id, username: user.username, publicKey: user.public_key },
+      encryptedPrivateKey: user.encrypted_private_key || null,
+      keySalt: user.key_salt || null,
+      keyNonce: user.key_nonce || null,
     });
   } catch (err) {
     console.error('Login error:', err);
@@ -95,11 +100,20 @@ router.post('/login', async (req, res) => {
 
 router.put('/public-key', require('../middleware/auth').authenticateToken, async (req, res) => {
   try {
-    const { publicKey } = req.body;
+    const { publicKey, encryptedPrivateKey, keySalt, keyNonce } = req.body;
     if (!publicKey) {
       return res.status(400).json({ error: 'Public key is required' });
     }
-    await pool.query('UPDATE users SET public_key = $1 WHERE id = $2', [publicKey, req.user.id]);
+
+    if (encryptedPrivateKey && keySalt && keyNonce) {
+      await pool.query(
+        'UPDATE users SET public_key = $1, encrypted_private_key = $2, key_salt = $3, key_nonce = $4 WHERE id = $5',
+        [publicKey, encryptedPrivateKey, keySalt, keyNonce, req.user.id]
+      );
+    } else {
+      await pool.query('UPDATE users SET public_key = $1 WHERE id = $2', [publicKey, req.user.id]);
+    }
+
     res.json({ success: true });
   } catch (err) {
     console.error('Update public key error:', err);

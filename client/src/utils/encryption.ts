@@ -150,3 +150,67 @@ export function parseEncryptedPayload(str: string): EncryptedPayload | null {
     return null;
   }
 }
+
+/**
+ * Derive a symmetric encryption key from a password and salt using NaCl's SHA-512.
+ * Multiple rounds are applied to increase resistance to brute-force attacks.
+ */
+export function deriveKeyFromPassword(password: string, salt: Uint8Array): Uint8Array {
+  const passwordBytes = decodeUTF8(password);
+  let input = new Uint8Array(salt.length + passwordBytes.length);
+  input.set(salt);
+  input.set(passwordBytes, salt.length);
+
+  // Apply multiple rounds of hashing for key stretching
+  const ROUNDS = 100000;
+  let hash = nacl.hash(input);
+  for (let i = 1; i < ROUNDS; i++) {
+    hash = nacl.hash(hash);
+  }
+  return hash.slice(0, nacl.secretbox.keyLength);
+}
+
+/**
+ * Encrypt a NaCl secret key using a password-derived key so it can be stored
+ * on the server for cross-device recovery.
+ */
+export function encryptPrivateKeyWithPassword(
+  secretKey: Uint8Array,
+  password: string
+): { encryptedPrivateKey: string; keySalt: string; keyNonce: string } {
+  const salt = nacl.randomBytes(32);
+  const derivedKey = deriveKeyFromPassword(password, salt);
+  const nonce = nacl.randomBytes(nacl.secretbox.nonceLength);
+  const encrypted = nacl.secretbox(secretKey, nonce, derivedKey);
+
+  if (!encrypted) {
+    throw new Error('Failed to encrypt private key');
+  }
+
+  return {
+    encryptedPrivateKey: encodeBase64(encrypted),
+    keySalt: encodeBase64(salt),
+    keyNonce: encodeBase64(nonce),
+  };
+}
+
+/**
+ * Decrypt a NaCl secret key that was encrypted with a password-derived key.
+ * Used during login to recover the keypair from server backup.
+ */
+export function decryptPrivateKeyWithPassword(
+  encryptedPrivateKey: string,
+  keySalt: string,
+  keyNonce: string,
+  password: string
+): Uint8Array | null {
+  try {
+    const salt = decodeBase64(keySalt);
+    const derivedKey = deriveKeyFromPassword(password, salt);
+    const nonce = decodeBase64(keyNonce);
+    const ciphertext = decodeBase64(encryptedPrivateKey);
+    return nacl.secretbox.open(ciphertext, nonce, derivedKey) || null;
+  } catch {
+    return null;
+  }
+}
