@@ -9,6 +9,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
@@ -51,6 +53,7 @@ export default function ChatScreen({ navigation, route }: Props) {
   const [sending, setSending] = useState(false);
   const [groupSharedKey, setGroupSharedKey] = useState<Uint8Array | null>(null);
   const flatListRef = useRef<FlatList>(null);
+  const isNearBottomRef = useRef(true);
   const typingTimeoutRef = useRef<any>(null);
   const publicKeyCacheRef = useRef<Map<string, string | null>>(new Map());
 
@@ -187,7 +190,7 @@ export default function ChatScreen({ navigation, route }: Props) {
   }, [conversationId, fetchMessages, decryptDisplayMessage]);
 
   useEffect(() => {
-    if (messages.length > 0) {
+    if (messages.length > 0 && isNearBottomRef.current) {
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
     }
   }, [messages.length]);
@@ -253,6 +256,12 @@ export default function ChatScreen({ navigation, route }: Props) {
     }, 1500);
   };
 
+  const handleListScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const distanceFromBottom = contentSize.height - (contentOffset.y + layoutMeasurement.height);
+    isNearBottomRef.current = distanceFromBottom < 120;
+  };
+
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -264,61 +273,73 @@ export default function ChatScreen({ navigation, route }: Props) {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'android' ? 'height' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item, index }) => {
-          const isSent = item.sender.id === user?.id;
-          const showSender =
-            isGroup && !isSent &&
-            (index === 0 || messages[index - 1]?.sender.id !== item.sender.id);
-          return (
-            <MessageBubble
-              content={item.decryptedContent ?? item.content}
-              isSent={isSent}
-              isEncrypted={item.isEncrypted}
-              createdAt={item.createdAt}
-              senderUsername={item.sender.username}
-              showSender={showSender}
-            />
-          );
-        }}
-        contentContainerStyle={styles.messageList}
-        ListEmptyComponent={
-          <View style={styles.emptyMessages}>
-            <Text style={styles.emptyText}>No messages yet. Say hello! 👋</Text>
-          </View>
-        }
-        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
-      />
-
-      <View style={styles.inputBar}>
-        <TextInput
-          style={styles.textInput}
-          value={inputText}
-          onChangeText={handleInputChange}
-          placeholder="Message..."
-          placeholderTextColor={colors.textTertiary}
-          multiline
-          maxLength={2000}
-          returnKeyType="default"
+      <View style={styles.messagesContainer}>
+        <FlatList
+          ref={flatListRef}
+          style={styles.flatList}
+          data={messages}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item, index }) => {
+            const isSent = item.sender.id === user?.id;
+            const showSender =
+              isGroup && !isSent &&
+              (index === 0 || messages[index - 1]?.sender.id !== item.sender.id);
+            return (
+              <MessageBubble
+                content={item.decryptedContent ?? item.content}
+                isSent={isSent}
+                isEncrypted={item.isEncrypted}
+                createdAt={item.createdAt}
+                senderUsername={item.sender.username}
+                showSender={showSender}
+              />
+            );
+          }}
+          contentContainerStyle={styles.messageList}
+          ListEmptyComponent={
+            <View style={styles.emptyMessages}>
+              <Text style={styles.emptyText}>No messages yet. Say hello! 👋</Text>
+            </View>
+          }
+          keyboardShouldPersistTaps="handled"
+          onScroll={handleListScroll}
+          scrollEventThrottle={16}
+          onContentSizeChange={() => {
+            if (isNearBottomRef.current) {
+              flatListRef.current?.scrollToEnd({ animated: false });
+            }
+          }}
         />
-        <TouchableOpacity
-          style={[styles.sendButton, (!inputText.trim() || sending) && styles.sendButtonDisabled]}
-          onPress={handleSend}
-          disabled={!inputText.trim() || sending}
-          activeOpacity={0.8}
-        >
-          {sending ? (
-            <ActivityIndicator size="small" color={colors.background} />
-          ) : (
-            <Text style={styles.sendIcon}>↑</Text>
-          )}
-        </TouchableOpacity>
+      </View>
+
+      <View style={styles.inputBarContainer}>
+        <View style={styles.inputBar}>
+          <TextInput
+            style={styles.textInput}
+            value={inputText}
+            onChangeText={handleInputChange}
+            placeholder="Message..."
+            placeholderTextColor={colors.textTertiary}
+            multiline
+            maxLength={2000}
+            returnKeyType="default"
+          />
+          <TouchableOpacity
+            style={[styles.sendButton, (!inputText.trim() || sending) && styles.sendButtonDisabled]}
+            onPress={handleSend}
+            disabled={!inputText.trim() || sending}
+            activeOpacity={0.8}
+          >
+            {sending ? (
+              <ActivityIndicator size="small" color={colors.background} />
+            ) : (
+              <Text style={styles.sendIcon}>↑</Text>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
     </KeyboardAvoidingView>
   );
@@ -328,6 +349,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+    ...(Platform.OS === 'web'
+      ? { position: 'absolute' as const, top: 0, left: 0, right: 0, bottom: 0 }
+      : {}),
   },
   centered: {
     flex: 1,
@@ -351,9 +375,20 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizeXS,
     color: colors.success,
   },
+  flatList: {
+    flex: 1,
+  },
+  messagesContainer: {
+    flex: 1,
+    minHeight: 0,
+    overflow: 'hidden',
+  },
   messageList: {
     paddingVertical: spacing.sm,
-    flexGrow: 1,
+  },
+  inputBarContainer: {
+    backgroundColor: colors.background,
+    flexShrink: 0,
   },
   emptyMessages: {
     flex: 1,
