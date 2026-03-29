@@ -305,7 +305,10 @@ router.put('/:id/group-key', async (req, res) => {
           'SELECT 1 FROM conversation_members WHERE conversation_id = $1 AND user_id = $2',
           [id, key.userId]
         );
-        if (isMember.rows.length === 0) continue;
+        if (isMember.rows.length === 0) {
+          console.warn(`Group key distribution: skipping non-member ${key.userId} for conversation ${id}`);
+          continue;
+        }
 
         await client.query(
           `INSERT INTO group_keys (conversation_id, user_id, encrypted_key, nonce, sender_id)
@@ -323,7 +326,6 @@ router.put('/:id/group-key', async (req, res) => {
 
     res.json({ success: true });
   } catch (err) {
-    if (err.status) return res.status(err.status).json({ error: err.message });
     console.error('Distribute group key error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }

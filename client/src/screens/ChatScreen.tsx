@@ -110,7 +110,10 @@ export default function ChatScreen({ navigation, route }: Props) {
     const keys: { userId: string; encryptedKey: string; nonce: string }[] = [];
 
     for (const member of members) {
-      if (!member.publicKey) continue;
+      if (!member.publicKey) {
+        console.warn(`Group key distribution: member ${member.id} has no public key`);
+        continue;
+      }
       const memberPubKey = decodeBase64(member.publicKey);
       const encrypted = encryptGroupKeyForMember(groupKey, memberPubKey, keyPair.secretKey);
       keys.push({
