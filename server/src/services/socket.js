@@ -81,13 +81,15 @@ function setupSocket(io) {
         // Store tags if provided
         const validTaggedUserIds = [];
         if (taggedUserIds && Array.isArray(taggedUserIds) && taggedUserIds.length > 0) {
+          // Fetch all conversation members once to validate tags in memory
+          const allMembersResult = await pool.query(
+            'SELECT user_id FROM conversation_members WHERE conversation_id = $1',
+            [conversationId]
+          );
+          const memberIdSet = new Set(allMembersResult.rows.map(r => r.user_id));
+
           for (const taggedUserId of taggedUserIds) {
-            // Verify tagged user is a member of the conversation
-            const tagMemberResult = await pool.query(
-              'SELECT 1 FROM conversation_members WHERE conversation_id = $1 AND user_id = $2',
-              [conversationId, taggedUserId]
-            );
-            if (tagMemberResult.rows.length > 0) {
+            if (memberIdSet.has(taggedUserId)) {
               await pool.query(
                 'INSERT INTO message_tags (message_id, tagged_user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
                 [messageId, taggedUserId]
@@ -129,6 +131,16 @@ function setupSocket(io) {
           const convName = convResult.rows[0]?.name || null;
           const isGroupConv = convResult.rows[0]?.is_group || false;
 
+          // Build a map of userId to sockets once for all members
+          const allSockets = await io.in(`conversation:${conversationId}`).fetchSockets();
+          const socketsByUserId = new Map();
+          for (const s of allSockets) {
+            if (s.user && s.user.id) {
+              if (!socketsByUserId.has(s.user.id)) socketsByUserId.set(s.user.id, []);
+              socketsByUserId.get(s.user.id).push(s);
+            }
+          }
+
           for (const member of membersResult.rows) {
             const pref = member.notification_preference || 'all';
             let shouldNotify = false;
@@ -143,21 +155,18 @@ function setupSocket(io) {
             // pref === 'none' → shouldNotify stays false
 
             if (shouldNotify) {
-              // Emit notification to the specific user's socket(s)
-              const memberSockets = await io.in(`conversation:${conversationId}`).fetchSockets();
+              const memberSockets = socketsByUserId.get(member.id) || [];
               for (const memberSocket of memberSockets) {
-                if (memberSocket.user && memberSocket.user.id === member.id) {
-                  memberSocket.emit('notification', {
-                    type: 'new_message',
-                    conversationId,
-                    conversationName: convName,
-                    isGroup: isGroupConv,
-                    messageId,
-                    senderUsername: socket.user.username,
-                    isCritical: critical,
-                    isTagged: validTaggedUserIds.includes(member.id),
-                  });
-                }
+                memberSocket.emit('notification', {
+                  type: 'new_message',
+                  conversationId,
+                  conversationName: convName,
+                  isGroup: isGroupConv,
+                  messageId,
+                  senderUsername: socket.user.username,
+                  isCritical: critical,
+                  isTagged: validTaggedUserIds.includes(member.id),
+                });
               }
             }
           }

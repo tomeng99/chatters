@@ -51,10 +51,11 @@ export default function SettingsScreen({ navigation }: Props) {
   }, [fetchSettings]);
 
   const updatePreference = async (value: NotificationPreference) => {
+    const previousValue = preference;
     setSaving(true);
     setPreference(value);
     try {
-      await fetch(`${API_BASE}/api/users/settings`, {
+      const res = await fetch(`${API_BASE}/api/users/settings`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -62,6 +63,11 @@ export default function SettingsScreen({ navigation }: Props) {
         },
         body: JSON.stringify({ notificationPreference: value }),
       });
+      if (!res.ok) {
+        setPreference(previousValue);
+      }
+    } catch {
+      setPreference(previousValue);
     } finally {
       setSaving(false);
     }
