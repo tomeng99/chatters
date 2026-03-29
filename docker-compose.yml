@@ -1,0 +1,16 @@
+version: '3.8'
+services:
+  server:
+    build: ./server
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - JWT_SECRET=${JWT_SECRET:-change-this-secret}
+      - DATABASE_PATH=/data/chatters.db
+    volumes:
+      - chatters_data:/data
+    restart: unless-stopped
+
+volumes:
+  chatters_data:
