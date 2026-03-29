@@ -156,14 +156,15 @@ export default function ConversationsScreen({ navigation }: Props) {
 
     (async () => {
       const previews: Record<string, string> = {};
-      await Promise.all(
-        conversations.map(async (conv) => {
-          if (conv.lastMessage?.isEncrypted) {
-            const text = await decryptPreview(conv);
-            if (text && !cancelled) previews[conv.id] = text;
-          }
-        })
-      );
+      // Decrypt previews sequentially to avoid network/IO spikes
+      // from concurrent group-key fetches across many conversations
+      for (const conv of conversations) {
+        if (cancelled) break;
+        if (conv.lastMessage?.isEncrypted) {
+          const text = await decryptPreview(conv);
+          if (text && !cancelled) previews[conv.id] = text;
+        }
+      }
       if (!cancelled) setDecryptedPreviews(previews);
     })();
 

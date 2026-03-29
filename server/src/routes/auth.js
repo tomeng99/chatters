@@ -105,7 +105,16 @@ router.put('/public-key', require('../middleware/auth').authenticateToken, async
       return res.status(400).json({ error: 'Public key is required' });
     }
 
-    if (encryptedPrivateKey && keySalt && keyNonce) {
+    // Validate backup fields as all-or-nothing to prevent inconsistent state
+    const backupFields = [encryptedPrivateKey, keySalt, keyNonce];
+    const backupProvided = backupFields.filter(Boolean).length;
+    if (backupProvided > 0 && backupProvided < 3) {
+      return res.status(400).json({
+        error: 'All backup fields (encryptedPrivateKey, keySalt, keyNonce) must be provided together',
+      });
+    }
+
+    if (backupProvided === 3) {
       await pool.query(
         'UPDATE users SET public_key = $1, encrypted_private_key = $2, key_salt = $3, key_nonce = $4 WHERE id = $5',
         [publicKey, encryptedPrivateKey, keySalt, keyNonce, req.user.id]

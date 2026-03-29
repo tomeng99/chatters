@@ -105,35 +105,15 @@ async function initializeDatabase() {
     `);
 
     // Add encrypted private key columns for cross-device key recovery
-    await client.query(`
-      DO $$
-      BEGIN
-        IF NOT EXISTS (
-          SELECT 1 FROM information_schema.columns
-          WHERE table_schema = current_schema()
-            AND table_name = 'users'
-            AND column_name = 'encrypted_private_key'
-        ) THEN
-          ALTER TABLE users ADD COLUMN encrypted_private_key TEXT;
-        END IF;
-        IF NOT EXISTS (
-          SELECT 1 FROM information_schema.columns
-          WHERE table_schema = current_schema()
-            AND table_name = 'users'
-            AND column_name = 'key_salt'
-        ) THEN
-          ALTER TABLE users ADD COLUMN key_salt TEXT;
-        END IF;
-        IF NOT EXISTS (
-          SELECT 1 FROM information_schema.columns
-          WHERE table_schema = current_schema()
-            AND table_name = 'users'
-            AND column_name = 'key_nonce'
-        ) THEN
-          ALTER TABLE users ADD COLUMN key_nonce TEXT;
-        END IF;
-      END $$
-    `);
+    await client.query(
+      'ALTER TABLE users ADD COLUMN IF NOT EXISTS encrypted_private_key TEXT'
+    );
+    await client.query(
+      'ALTER TABLE users ADD COLUMN IF NOT EXISTS key_salt TEXT'
+    );
+    await client.query(
+      'ALTER TABLE users ADD COLUMN IF NOT EXISTS key_nonce TEXT'
+    );
 
     await client.query(
       'CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id)'

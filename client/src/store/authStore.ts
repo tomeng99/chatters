@@ -52,7 +52,7 @@ async function syncPublicKey(
 
   // If password is provided, also upload the encrypted private key for cross-device recovery
   if (password) {
-    const encrypted = encryptPrivateKeyWithPassword(keyPair.secretKey, password);
+    const encrypted = await encryptPrivateKeyWithPassword(keyPair.secretKey, password);
     body.encryptedPrivateKey = encrypted.encryptedPrivateKey;
     body.keySalt = encrypted.keySalt;
     body.keyNonce = encrypted.keyNonce;
@@ -192,7 +192,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // 2. If no local key, try to recover from server backup
       if (!keyPair && serverHasBackup) {
         console.log('[KeyRecovery] Attempting to recover keypair from server backup...');
-        const secretKey = decryptPrivateKeyWithPassword(
+        const secretKey = await decryptPrivateKeyWithPassword(
           data.encryptedPrivateKey,
           data.keySalt,
           data.keyNonce,
@@ -210,15 +210,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       // 3. Only generate a new keypair as a last resort (no local key, no server backup).
       // This means old messages encrypted with a previous keypair will be unreadable.
+      let generatedNewKeyPair = false;
       if (!keyPair) {
         console.warn('[KeyRecovery] No local or server-backed keypair found; generating new keypair. Old encrypted messages will be unreadable.');
         keyPair = generateKeyPair();
         await saveKeyPairForUser(data.user.id, keyPair);
+        generatedNewKeyPair = true;
       }
 
-      // Upload encrypted backup whenever the server doesn't have one yet,
-      // or when a brand-new keypair was just generated.
-      const needsBackupUpload = !serverHasBackup;
+      // Upload encrypted backup whenever a new keypair was generated or
+      // the server doesn't have a backup yet (e.g., legacy account).
+      const needsBackupUpload = generatedNewKeyPair || !serverHasBackup;
       await syncPublicKey(data.token, keyPair, needsBackupUpload ? password : undefined);
 
       await Promise.all([
@@ -241,7 +243,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const publicKeyB64 = encodeBase64(keyPair.publicKey);
 
       // Encrypt the private key with the password for server-side backup
-      const encryptedKeyData = encryptPrivateKeyWithPassword(keyPair.secretKey, password);
+      const encryptedKeyData = await encryptPrivateKeyWithPassword(keyPair.secretKey, password);
 
       const response = await fetch(`${API_BASE}/api/auth/register`, {
         method: 'POST',

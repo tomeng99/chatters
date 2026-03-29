@@ -153,22 +153,26 @@ export function parseEncryptedPayload(str: string): EncryptedPayload | null {
 
 /**
  * Derive a symmetric encryption key from a password and salt using NaCl's SHA-512.
- * Multiple rounds are applied to increase resistance to brute-force attacks.
+ * Runs asynchronously in chunks to avoid blocking the UI/main thread on mobile.
+ *
+ * NOTE: This is a pragmatic approach using existing dependencies. For stronger
+ * protection against GPU/ASIC attacks, upgrade to Argon2id or PBKDF2 when a
+ * suitable cross-platform library is available.
  */
-export function deriveKeyFromPassword(password: string, salt: Uint8Array): Uint8Array {
+export async function deriveKeyFromPassword(password: string, salt: Uint8Array): Promise<Uint8Array> {
   const passwordBytes = decodeUTF8(password);
-  let input = new Uint8Array(salt.length + passwordBytes.length);
+  const input = new Uint8Array(salt.length + passwordBytes.length);
   input.set(salt);
   input.set(passwordBytes, salt.length);
 
-  // Apply multiple rounds of hashing for key stretching.
-  // NOTE: This is a pragmatic approach using existing dependencies. For stronger
-  // protection against GPU/ASIC attacks, upgrade to Argon2id or PBKDF2 when a
-  // suitable cross-platform library is available.
   const ROUNDS = 100000;
+  const CHUNK_SIZE = 5000; // Yield to event loop every N rounds
   let hash = nacl.hash(input);
   for (let i = 1; i < ROUNDS; i++) {
     hash = nacl.hash(hash);
+    if (i % CHUNK_SIZE === 0) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    }
   }
   return hash.slice(0, nacl.secretbox.keyLength);
 }
@@ -177,12 +181,12 @@ export function deriveKeyFromPassword(password: string, salt: Uint8Array): Uint8
  * Encrypt a NaCl secret key using a password-derived key so it can be stored
  * on the server for cross-device recovery.
  */
-export function encryptPrivateKeyWithPassword(
+export async function encryptPrivateKeyWithPassword(
   secretKey: Uint8Array,
   password: string
-): { encryptedPrivateKey: string; keySalt: string; keyNonce: string } {
+): Promise<{ encryptedPrivateKey: string; keySalt: string; keyNonce: string }> {
   const salt = nacl.randomBytes(32);
-  const derivedKey = deriveKeyFromPassword(password, salt);
+  const derivedKey = await deriveKeyFromPassword(password, salt);
   const nonce = nacl.randomBytes(nacl.secretbox.nonceLength);
   const encrypted = nacl.secretbox(secretKey, nonce, derivedKey);
 
@@ -201,15 +205,15 @@ export function encryptPrivateKeyWithPassword(
  * Decrypt a NaCl secret key that was encrypted with a password-derived key.
  * Used during login to recover the keypair from server backup.
  */
-export function decryptPrivateKeyWithPassword(
+export async function decryptPrivateKeyWithPassword(
   encryptedPrivateKey: string,
   keySalt: string,
   keyNonce: string,
   password: string
-): Uint8Array | null {
+): Promise<Uint8Array | null> {
   try {
     const salt = decodeBase64(keySalt);
-    const derivedKey = deriveKeyFromPassword(password, salt);
+    const derivedKey = await deriveKeyFromPassword(password, salt);
     const nonce = decodeBase64(keyNonce);
     const ciphertext = decodeBase64(encryptedPrivateKey);
     return nacl.secretbox.open(ciphertext, nonce, derivedKey) || null;
