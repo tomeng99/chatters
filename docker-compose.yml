@@ -1,0 +1,35 @@
+version: '3.8'
+services:
+  postgres:
+    image: docker.io/library/postgres:16-alpine
+    environment:
+      POSTGRES_DB: chatters
+      POSTGRES_USER: chatters
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-chatters}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chatters"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build: ./server
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=chatters
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-chatters}
+      - POSTGRES_DB=chatters
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
