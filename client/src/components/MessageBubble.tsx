@@ -28,11 +28,12 @@ function isEmojiOnly(text: string): boolean {
   return emojiRegex.test(text.trim()) && text.trim().length <= 32;
 }
 
-// URL pattern for detecting links in text
-const URL_PATTERN = 'https?://[^\\s<>"\'\\)\\]]+';
+// URL regex for detecting links in text (precompiled, reset lastIndex before each use)
+const URL_REGEX = /https?:\/\/[^\s<>"')\]]+/gi;
 
 function hasUrls(text: string): boolean {
-  return new RegExp(URL_PATTERN, 'i').test(text);
+  URL_REGEX.lastIndex = 0;
+  return URL_REGEX.test(text);
 }
 
 function renderTextWithLinks(text: string, isSent: boolean) {
@@ -40,8 +41,8 @@ function renderTextWithLinks(text: string, isSent: boolean) {
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
-  const regex = new RegExp(URL_PATTERN, 'gi');
-  while ((match = regex.exec(text)) !== null) {
+  URL_REGEX.lastIndex = 0;
+  while ((match = URL_REGEX.exec(text)) !== null) {
     // Add text before the link
     if (match.index > lastIndex) {
       parts.push(

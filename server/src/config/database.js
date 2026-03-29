@@ -72,13 +72,17 @@ async function initializeDatabase() {
       BEGIN
         IF NOT EXISTS (
           SELECT 1 FROM information_schema.columns
-          WHERE table_name = 'messages' AND column_name = 'message_type'
+          WHERE table_schema = current_schema()
+            AND table_name = 'messages'
+            AND column_name = 'message_type'
         ) THEN
           ALTER TABLE messages ADD COLUMN message_type TEXT NOT NULL DEFAULT 'text';
         END IF;
         IF NOT EXISTS (
           SELECT 1 FROM information_schema.columns
-          WHERE table_name = 'messages' AND column_name = 'file_name'
+          WHERE table_schema = current_schema()
+            AND table_name = 'messages'
+            AND column_name = 'file_name'
         ) THEN
           ALTER TABLE messages ADD COLUMN file_name TEXT;
         END IF;

@@ -379,14 +379,27 @@ export default function ChatScreen({ navigation, route }: Props) {
     isNearBottomRef.current = distanceFromBottom < 120;
   };
 
-  const uploadFile = useCallback(async (uri: string, fileName: string, mimeType: string): Promise<{ url: string; fileType: MessageType; fileName: string } | null> => {
+  const uploadFile = useCallback(async (uri: string, fileName: string, mimeType: string, file?: File | null): Promise<{ url: string; fileType: MessageType; fileName: string } | null> => {
     try {
       const formData = new FormData();
-      formData.append('file', {
-        uri,
-        name: fileName,
-        type: mimeType,
-      } as unknown as Blob);
+
+      if (Platform.OS === 'web') {
+        // On web, use the native File object if available, otherwise fetch the blob URI
+        if (file) {
+          formData.append('file', file, fileName);
+        } else {
+          const response = await fetch(uri);
+          const blob = await response.blob();
+          formData.append('file', blob, fileName);
+        }
+      } else {
+        // On native (iOS/Android), use the { uri, name, type } pattern supported by React Native
+        formData.append('file', {
+          uri,
+          name: fileName,
+          type: mimeType,
+        } as unknown as Blob);
+      }
 
       const res = await fetch(`${API_BASE}/api/upload`, {
         method: 'POST',
@@ -479,8 +492,10 @@ export default function ChatScreen({ navigation, route }: Props) {
     const fileName = asset.fileName || uri.split('/').pop() || 'file';
     const mimeType = asset.mimeType || (asset.type === 'video' ? 'video/mp4' : 'image/jpeg');
     const messageType: MessageType = asset.type === 'video' ? 'video' : 'image';
+    // On web, expo-image-picker provides a File object on the asset
+    const webFile = (asset as unknown as { file?: File }).file || null;
 
-    const uploaded = await uploadFile(uri, fileName, mimeType);
+    const uploaded = await uploadFile(uri, fileName, mimeType, webFile);
     if (uploaded) {
       await sendMediaMessage(uploaded.url, messageType, uploaded.fileName);
     }
@@ -498,8 +513,10 @@ export default function ChatScreen({ navigation, route }: Props) {
     const uri = asset.uri;
     const fileName = asset.name || 'document.pdf';
     const mimeType = asset.mimeType || 'application/pdf';
+    // On web, expo-document-picker provides a File object on the asset
+    const webFile = (asset as unknown as { file?: File }).file || null;
 
-    const uploaded = await uploadFile(uri, fileName, mimeType);
+    const uploaded = await uploadFile(uri, fileName, mimeType, webFile);
     if (uploaded) {
       await sendMediaMessage(uploaded.url, 'file', uploaded.fileName);
     }

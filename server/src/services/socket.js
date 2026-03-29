@@ -62,6 +62,12 @@ function setupSocket(io) {
         const validTypes = ['text', 'image', 'video', 'file'];
         const msgType = validTypes.includes(messageType) ? messageType : 'text';
 
+        // Sanitize fileName: only store for non-text types, cap length
+        let safeFileName = null;
+        if (msgType !== 'text' && fileName) {
+          safeFileName = String(fileName).slice(0, 255);
+        }
+
         const memberResult = await pool.query(
           'SELECT 1 FROM conversation_members WHERE conversation_id = $1 AND user_id = $2',
           [conversationId, socket.user.id]
@@ -77,7 +83,7 @@ function setupSocket(io) {
 
         await pool.query(
           'INSERT INTO messages (id, conversation_id, sender_id, content, iv, is_encrypted, message_type, file_name, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
-          [messageId, conversationId, socket.user.id, content, iv || null, Boolean(isEncrypted), msgType, fileName || null, now]
+          [messageId, conversationId, socket.user.id, content, iv || null, Boolean(isEncrypted), msgType, safeFileName, now]
         );
 
         const message = {
@@ -87,7 +93,7 @@ function setupSocket(io) {
           iv: iv || null,
           isEncrypted: Boolean(isEncrypted),
           messageType: msgType,
-          fileName: fileName || null,
+          fileName: safeFileName,
           createdAt: now,
           sender: { id: socket.user.id, username: socket.user.username },
         };

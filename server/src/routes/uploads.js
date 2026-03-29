@@ -77,9 +77,31 @@ function getFileType(mimetype) {
   return 'file';
 }
 
+const MAX_FILE_NAME_LENGTH = 255;
+
+function sanitizeFileName(name) {
+  if (!name || typeof name !== 'string') return 'file';
+  // Use only the basename (strip path segments) and limit length
+  const base = path.basename(name);
+  return base.length > MAX_FILE_NAME_LENGTH ? base.slice(0, MAX_FILE_NAME_LENGTH) : base;
+}
+
 router.use(authenticateToken);
 
-router.post('/', upload.single('file'), async (req, res) => {
+router.post('/', (req, res, next) => {
+  upload.single('file')(req, res, (err) => {
+    if (err) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({ error: `File too large. Maximum size is ${MAX_FILE_SIZE / (1024 * 1024)}MB` });
+      }
+      if (err.message && err.message.includes('not supported')) {
+        return res.status(400).json({ error: err.message });
+      }
+      return res.status(400).json({ error: err.message || 'Upload failed' });
+    }
+    next();
+  });
+}, async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file provided' });
@@ -116,14 +138,11 @@ router.post('/', upload.single('file'), async (req, res) => {
     res.json({
       url: fileUrl,
       fileType,
-      fileName: originalname,
+      fileName: sanitizeFileName(originalname),
       size: finalBuffer.length,
     });
   } catch (err) {
     console.error('Upload error:', err);
-    if (err.message && err.message.includes('not supported')) {
-      return res.status(400).json({ error: err.message });
-    }
     res.status(500).json({ error: 'Failed to upload file' });
   }
 });
