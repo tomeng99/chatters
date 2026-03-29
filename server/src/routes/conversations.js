@@ -187,7 +187,7 @@ router.get('/:id/messages', async (req, res) => {
     const params = [id];
     let paramCount = 1;
     let query = `
-      SELECT m.id, m.conversation_id, m.content, m.iv, m.is_encrypted, m.created_at,
+      SELECT m.id, m.conversation_id, m.content, m.iv, m.is_encrypted, m.message_type, m.file_name, m.created_at,
              u.id AS sender_id, u.username AS sender_username
       FROM messages m
       JOIN users u ON u.id = m.sender_id
@@ -213,6 +213,8 @@ router.get('/:id/messages', async (req, res) => {
         content: msg.content,
         iv: msg.iv,
         isEncrypted: Boolean(msg.is_encrypted),
+        messageType: msg.message_type || 'text',
+        fileName: msg.file_name || null,
         createdAt: msg.created_at,
         sender: { id: msg.sender_id, username: msg.sender_username },
       }))
