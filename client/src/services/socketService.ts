@@ -8,18 +8,33 @@ interface Message {
   content: string;
   iv?: string | null;
   isEncrypted: boolean;
+  isCritical?: boolean;
+  taggedUserIds?: string[];
   createdAt: number;
   sender: { id: string; username: string };
 }
 
+interface NotificationData {
+  type: string;
+  conversationId: string;
+  conversationName: string | null;
+  isGroup: boolean;
+  messageId: string;
+  senderUsername: string;
+  isCritical: boolean;
+  isTagged: boolean;
+}
+
 type MessageHandler = (message: Message) => void;
 type TypingHandler = (data: { userId: string; username: string; isTyping: boolean }) => void;
+type NotificationHandler = (data: NotificationData) => void;
 
 class SocketService {
   private socket: Socket | null = null;
   private messageHandlers: Map<string, MessageHandler[]> = new Map();
   private globalMessageHandlers: MessageHandler[] = [];
   private typingHandlers: Map<string, TypingHandler[]> = new Map();
+  private notificationHandlers: NotificationHandler[] = [];
 
   connect(token: string): void {
     if (this.socket?.connected) return;
@@ -56,6 +71,10 @@ class SocketService {
         handlers.forEach((h) => h(data));
       }
     });
+
+    this.socket.on('notification', (data: NotificationData) => {
+      this.notificationHandlers.forEach((h) => h(data));
+    });
   }
 
   disconnect(): void {
@@ -64,6 +83,7 @@ class SocketService {
     this.messageHandlers.clear();
     this.globalMessageHandlers = [];
     this.typingHandlers.clear();
+    this.notificationHandlers = [];
   }
 
   joinConversation(conversationId: string): void {
@@ -74,7 +94,9 @@ class SocketService {
     conversationId: string,
     content: string,
     iv?: string | null,
-    isEncrypted = false
+    isEncrypted = false,
+    isCritical = false,
+    taggedUserIds: string[] = []
   ): Promise<{ success: boolean; message?: Message; error?: string }> {
     return new Promise((resolve) => {
       if (!this.socket?.connected) {
@@ -83,7 +105,7 @@ class SocketService {
       }
       this.socket.emit(
         'send_message',
-        { conversationId, content, iv, isEncrypted },
+        { conversationId, content, iv, isEncrypted, isCritical, taggedUserIds },
         (response: { success?: boolean; message?: Message; error?: string }) => {
           resolve({ ...response, success: response.success ?? false });
         }
@@ -128,10 +150,17 @@ class SocketService {
     };
   }
 
+  onNotification(handler: NotificationHandler): () => void {
+    this.notificationHandlers.push(handler);
+    return () => {
+      this.notificationHandlers = this.notificationHandlers.filter((h) => h !== handler);
+    };
+  }
+
   isConnected(): boolean {
     return this.socket?.connected ?? false;
   }
 }
 
 export const socketService = new SocketService();
-export type { Message };
+export type { Message, NotificationData };

@@ -54,11 +54,31 @@ export default function ChatScreen({ navigation, route }: Props) {
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [isCritical, setIsCritical] = useState(false);
   const [groupSharedKey, setGroupSharedKey] = useState<Uint8Array | null>(null);
   const flatListRef = useRef<FlatList>(null);
   const isNearBottomRef = useRef(true);
   const typingTimeoutRef = useRef<any>(null);
   const publicKeyCacheRef = useRef<Map<string, string | null>>(new Map());
+
+  const parseTaggedUserIds = useCallback(
+    (text: string): string[] => {
+      const mentionRegex = /@(\w+)/g;
+      const taggedIds: string[] = [];
+      let match;
+      while ((match = mentionRegex.exec(text)) !== null) {
+        const username = match[1];
+        const member = members.find(
+          (m) => m.username.toLowerCase() === username.toLowerCase() && m.id !== user?.id
+        );
+        if (member && !taggedIds.includes(member.id)) {
+          taggedIds.push(member.id);
+        }
+      }
+      return taggedIds;
+    },
+    [members, user?.id]
+  );
 
   useEffect(() => {
     navigation.setOptions({
@@ -304,6 +324,10 @@ export default function ChatScreen({ navigation, route }: Props) {
     setInputText('');
     setSending(true);
 
+    const messageCritical = isCritical;
+    const taggedUserIds = parseTaggedUserIds(text);
+    setIsCritical(false);
+
     try {
       let content = text;
       let iv: string | null = null;
@@ -335,7 +359,9 @@ export default function ChatScreen({ navigation, route }: Props) {
         }
       }
 
-      const result = await socketService.sendMessage(conversationId, content, iv, isEncrypted);
+      const result = await socketService.sendMessage(
+        conversationId, content, iv, isEncrypted, messageCritical, taggedUserIds
+      );
 
       if (result.success && result.message) {
         const displayMsg: DisplayMessage = {
@@ -404,6 +430,7 @@ export default function ChatScreen({ navigation, route }: Props) {
                 content={item.decryptedContent ?? item.content}
                 isSent={isSent}
                 isEncrypted={item.isEncrypted}
+                isCritical={item.isCritical}
                 createdAt={item.createdAt}
                 senderUsername={item.sender.username}
                 showSender={showSender}
@@ -429,6 +456,13 @@ export default function ChatScreen({ navigation, route }: Props) {
 
       <View style={styles.inputBarContainer}>
         <View style={styles.inputBar}>
+          <TouchableOpacity
+            style={[styles.criticalToggle, isCritical && styles.criticalToggleActive]}
+            onPress={() => setIsCritical(!isCritical)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.criticalToggleIcon}>❗</Text>
+          </TouchableOpacity>
           <TextInput
             style={styles.textInput}
             value={inputText}
@@ -521,6 +555,23 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
     backgroundColor: colors.background,
+  },
+  criticalToggle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.xs,
+    backgroundColor: colors.surface,
+  },
+  criticalToggleActive: {
+    backgroundColor: colors.error + '20',
+    borderWidth: 1,
+    borderColor: colors.error,
+  },
+  criticalToggleIcon: {
+    fontSize: 16,
   },
   textInput: {
     flex: 1,

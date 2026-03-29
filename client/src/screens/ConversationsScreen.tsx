@@ -42,6 +42,11 @@ export default function ConversationsScreen({ navigation }: Props) {
 
   useEffect(() => {
     navigation.setOptions({
+      headerLeft: () => (
+        <TouchableOpacity onPress={() => navigation.navigate('Settings')} style={{ marginLeft: spacing.md }}>
+          <Text style={{ fontSize: 22 }}>⚙️</Text>
+        </TouchableOpacity>
+      ),
       headerRight: () => (
         <TouchableOpacity onPress={logout} style={{ marginRight: spacing.md }}>
           <Text style={{ color: colors.primary, fontSize: typography.fontSizeMD }}>Sign Out</Text>

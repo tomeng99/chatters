@@ -26,8 +26,22 @@ async function initializeDatabase() {
         username TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
         public_key TEXT,
+        notification_preference TEXT NOT NULL DEFAULT 'all',
         created_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT
       )
+    `);
+
+    // Add notification_preference column if it doesn't exist (migration for existing DBs)
+    await client.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'users' AND column_name = 'notification_preference'
+        ) THEN
+          ALTER TABLE users ADD COLUMN notification_preference TEXT NOT NULL DEFAULT 'all';
+        END IF;
+      END $$
     `);
 
     await client.query(`
@@ -58,9 +72,33 @@ async function initializeDatabase() {
         content TEXT NOT NULL,
         iv TEXT,
         is_encrypted BOOLEAN NOT NULL DEFAULT FALSE,
+        is_critical BOOLEAN NOT NULL DEFAULT FALSE,
         created_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
         FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
         FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Add is_critical column if it doesn't exist (migration for existing DBs)
+    await client.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'messages' AND column_name = 'is_critical'
+        ) THEN
+          ALTER TABLE messages ADD COLUMN is_critical BOOLEAN NOT NULL DEFAULT FALSE;
+        END IF;
+      END $$
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS message_tags (
+        message_id TEXT NOT NULL,
+        tagged_user_id TEXT NOT NULL,
+        PRIMARY KEY (message_id, tagged_user_id),
+        FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE,
+        FOREIGN KEY (tagged_user_id) REFERENCES users(id) ON DELETE CASCADE
       )
     `);
 

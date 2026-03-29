@@ -30,6 +30,46 @@ router.get('/search', async (req, res) => {
   }
 });
 
+const VALID_NOTIFICATION_PREFERENCES = ['all', 'tags_and_critical', 'critical_only', 'none'];
+
+router.get('/settings', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT notification_preference FROM users WHERE id = $1',
+      [req.user.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json({ notificationPreference: result.rows[0].notification_preference });
+  } catch (err) {
+    console.error('Get settings error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.put('/settings', async (req, res) => {
+  try {
+    const { notificationPreference } = req.body;
+
+    if (!notificationPreference || !VALID_NOTIFICATION_PREFERENCES.includes(notificationPreference)) {
+      return res.status(400).json({
+        error: `notificationPreference must be one of: ${VALID_NOTIFICATION_PREFERENCES.join(', ')}`,
+      });
+    }
+
+    await pool.query(
+      'UPDATE users SET notification_preference = $1 WHERE id = $2',
+      [notificationPreference, req.user.id]
+    );
+
+    res.json({ notificationPreference });
+  } catch (err) {
+    console.error('Update settings error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 router.get('/:id/publicKey', async (req, res) => {
   try {
     const result = await pool.query(
