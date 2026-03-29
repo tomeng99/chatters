@@ -85,12 +85,15 @@ JWT_SECRET=your-strong-secret POSTGRES_PASSWORD=your-db-password docker-compose 
 | Variable              | Default                             | Description                    |
 |-----------------------|-------------------------------------|--------------------------------|
 | `PORT`                | `3001`                              | HTTP + WebSocket port          |
-| `JWT_SECRET`          | `change-this-secret-in-production`  | JWT signing secret             |
+| `JWT_SECRET`          | *(required)*                        | JWT signing secret             |
 | `POSTGRES_HOST`       | `localhost`                         | PostgreSQL host                |
 | `POSTGRES_PORT`       | `5432`                              | PostgreSQL port                |
 | `POSTGRES_USER`       | `chatters`                          | PostgreSQL user                |
 | `POSTGRES_PASSWORD`   | `chatters`                          | PostgreSQL password            |
 | `POSTGRES_DB`         | `chatters`                          | PostgreSQL database name       |
+| `POSTGRES_POOL_MAX`   | `20`                                | Maximum pool connections       |
+| `POSTGRES_SSL`        | *(unset)*                           | Set `true` to enable SSL       |
+| `ALLOWED_ORIGINS`     | `http://localhost:8081,...`          | Comma-separated allowed origins|
 
 ---
 

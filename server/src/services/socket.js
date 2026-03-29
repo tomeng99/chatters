@@ -13,7 +13,7 @@ function setupSocket(io) {
       return next(new Error('Authentication token required'));
     }
     try {
-      const user = jwt.verify(token, process.env.JWT_SECRET || 'change-this-secret-in-production');
+      const user = jwt.verify(token, process.env.JWT_SECRET);
       socket.user = user;
       next();
     } catch (err) {
@@ -96,12 +96,22 @@ function setupSocket(io) {
       }
     });
 
-    socket.on('typing', ({ conversationId, isTyping }) => {
-      socket.to(`conversation:${conversationId}`).emit('user_typing', {
-        userId: socket.user.id,
-        username: socket.user.username,
-        isTyping,
-      });
+    socket.on('typing', async ({ conversationId, isTyping }) => {
+      try {
+        const memberResult = await pool.query(
+          'SELECT 1 FROM conversation_members WHERE conversation_id = $1 AND user_id = $2',
+          [conversationId, socket.user.id]
+        );
+        if (memberResult.rows.length === 0) return;
+
+        socket.to(`conversation:${conversationId}`).emit('user_typing', {
+          userId: socket.user.id,
+          username: socket.user.username,
+          isTyping,
+        });
+      } catch (err) {
+        console.error('Typing event error:', err);
+      }
     });
 
     socket.on('disconnect', () => {

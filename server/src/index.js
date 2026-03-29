@@ -11,6 +11,11 @@ const conversationRoutes = require('./routes/conversations');
 const userRoutes = require('./routes/users');
 const { setupSocket } = require('./services/socket');
 
+if (!process.env.JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET environment variable is required');
+  process.exit(1);
+}
+
 const app = express();
 const server = http.createServer(app);
 
@@ -30,7 +35,7 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -49,11 +54,7 @@ const apiLimiter = rateLimit({
 });
 
 const io = new Server(server, {
-  cors: {
-    origin: '*',
-    methods: ['GET', 'POST'],
-    credentials: true,
-  },
+  cors: corsOptions,
 });
 
 setupSocket(io);

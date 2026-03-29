@@ -1,12 +1,21 @@
 const { Pool } = require('pg');
 
-const pool = new Pool({
+const poolConfig = {
   host: process.env.POSTGRES_HOST || 'localhost',
   port: parseInt(process.env.POSTGRES_PORT) || 5432,
   user: process.env.POSTGRES_USER || 'chatters',
   password: process.env.POSTGRES_PASSWORD || 'chatters',
   database: process.env.POSTGRES_DB || 'chatters',
-});
+  max: parseInt(process.env.POSTGRES_POOL_MAX) || 20,
+  idleTimeoutMillis: parseInt(process.env.POSTGRES_IDLE_TIMEOUT) || 30000,
+  connectionTimeoutMillis: parseInt(process.env.POSTGRES_CONNECT_TIMEOUT) || 5000,
+};
+
+if (process.env.POSTGRES_SSL === 'true') {
+  poolConfig.ssl = { rejectUnauthorized: process.env.POSTGRES_SSL_REJECT_UNAUTHORIZED !== 'false' };
+}
+
+const pool = new Pool(poolConfig);
 
 async function initializeDatabase() {
   const client = await pool.connect();

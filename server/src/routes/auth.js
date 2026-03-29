@@ -26,23 +26,25 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'Username can only contain letters, numbers, and underscores' });
     }
 
-    const existingResult = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
-    if (existingResult.rows.length > 0) {
-      return res.status(409).json({ error: 'Username already taken' });
-    }
-
     const saltRounds = 12;
     const passwordHash = await bcrypt.hash(password, saltRounds);
     const userId = uuidv4();
 
-    await pool.query(
-      'INSERT INTO users (id, username, password_hash, public_key) VALUES ($1, $2, $3, $4)',
-      [userId, username, passwordHash, publicKey || null]
-    );
+    try {
+      await pool.query(
+        'INSERT INTO users (id, username, password_hash, public_key) VALUES ($1, $2, $3, $4)',
+        [userId, username, passwordHash, publicKey || null]
+      );
+    } catch (insertErr) {
+      if (insertErr.code === '23505') {
+        return res.status(409).json({ error: 'Username already taken' });
+      }
+      throw insertErr;
+    }
 
     const token = jwt.sign(
       { id: userId, username },
-      process.env.JWT_SECRET || 'change-this-secret-in-production',
+      process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
 
@@ -77,7 +79,7 @@ router.post('/login', async (req, res) => {
 
     const token = jwt.sign(
       { id: user.id, username: user.username },
-      process.env.JWT_SECRET || 'change-this-secret-in-production',
+      process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
 

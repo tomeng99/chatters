@@ -9,7 +9,7 @@ function authenticateToken(req, res, next) {
   }
 
   try {
-    const user = jwt.verify(token, process.env.JWT_SECRET || 'change-this-secret-in-production');
+    const user = jwt.verify(token, process.env.JWT_SECRET);
     req.user = user;
     next();
   } catch (err) {
