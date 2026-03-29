@@ -25,7 +25,7 @@ const rawAllowedOrigins = process.env.ALLOWED_ORIGINS;
 const parsedAllowedOrigins = rawAllowedOrigins
   ? rawAllowedOrigins.split(',').map(o => o.trim()).filter(Boolean)
   : [];
-const hasExplicitOrigins = rawAllowedOrigins !== undefined;
+const hasExplicitOrigins = rawAllowedOrigins !== undefined && rawAllowedOrigins !== '';
 if (hasExplicitOrigins && parsedAllowedOrigins.length === 0) {
   console.warn(
     'ALLOWED_ORIGINS is set but empty after parsing; no cross-origin browser requests will be allowed.',
