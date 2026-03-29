@@ -18,7 +18,8 @@ router.get('/', async (req, res) => {
         m.content AS last_message_content,
         m.created_at AS last_message_at,
         m.is_encrypted AS last_message_encrypted,
-        u.username AS last_message_sender
+        u.username AS last_message_sender,
+        m.sender_id AS last_message_sender_id
       FROM conversations c
       JOIN conversation_members cm ON cm.conversation_id = c.id AND cm.user_id = $1
       LEFT JOIN messages m ON m.id = (
@@ -54,6 +55,7 @@ router.get('/', async (req, res) => {
                 createdAt: conv.last_message_at,
                 isEncrypted: Boolean(conv.last_message_encrypted),
                 senderUsername: conv.last_message_sender,
+                senderId: conv.last_message_sender_id,
               }
             : null,
         };

@@ -104,6 +104,17 @@ async function initializeDatabase() {
       )
     `);
 
+    // Add encrypted private key columns for cross-device key recovery
+    await client.query(
+      'ALTER TABLE users ADD COLUMN IF NOT EXISTS encrypted_private_key TEXT'
+    );
+    await client.query(
+      'ALTER TABLE users ADD COLUMN IF NOT EXISTS key_salt TEXT'
+    );
+    await client.query(
+      'ALTER TABLE users ADD COLUMN IF NOT EXISTS key_nonce TEXT'
+    );
+
     await client.query(
       'CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id)'
     );

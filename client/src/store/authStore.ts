@@ -5,6 +5,8 @@ import {
   keyPairToBase64,
   keyPairFromBase64,
   KeyPair,
+  encryptPrivateKeyWithPassword,
+  decryptPrivateKeyWithPassword,
 } from '../utils/encryption';
 
 const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001';
@@ -38,9 +40,23 @@ async function saveKeyPairForUser(userId: string, keyPair: KeyPair): Promise<voi
   await AsyncStorage.setItem(getUserKeyPairStorageKey(userId), JSON.stringify(b64));
 }
 
-async function syncPublicKey(token: string, keyPair: KeyPair): Promise<void> {
+async function syncPublicKey(
+  token: string,
+  keyPair: KeyPair,
+  password?: string
+): Promise<void> {
   const { encodeBase64 } = await import('tweetnacl-util');
   const publicKey = encodeBase64(keyPair.publicKey);
+
+  const body: Record<string, string> = { publicKey };
+
+  // If password is provided, also upload the encrypted private key for cross-device recovery
+  if (password) {
+    const encrypted = await encryptPrivateKeyWithPassword(keyPair.secretKey, password);
+    body.encryptedPrivateKey = encrypted.encryptedPrivateKey;
+    body.keySalt = encrypted.keySalt;
+    body.keyNonce = encrypted.keyNonce;
+  }
 
   const res = await fetch(`${API_BASE}/api/auth/public-key`, {
     method: 'PUT',
@@ -48,7 +64,7 @@ async function syncPublicKey(token: string, keyPair: KeyPair): Promise<void> {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ publicKey }),
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {
@@ -99,12 +115,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const user = JSON.parse(userStr) as User;
       const keyPair = await loadKeyPairForUser(user.id);
 
-      if (keyPair) {
-        try {
-          await syncPublicKey(tokenStr, keyPair);
-        } catch {
-          // Sync failure is non-fatal (e.g., expired token will redirect to login)
-        }
+      if (!keyPair) {
+        // Local keypair is missing (e.g., new device with restored token but no keys).
+        // Force re-login so password-based recovery can run.
+        console.warn('[Init] Valid session but no local keypair — forcing re-login for key recovery');
+        await Promise.all([
+          AsyncStorage.removeItem(STORAGE_KEYS.TOKEN),
+          AsyncStorage.removeItem(STORAGE_KEYS.USER),
+        ]);
+        set({ isInitialized: true });
+        return;
+      }
+
+      try {
+        await syncPublicKey(tokenStr, keyPair);
+      } catch {
+        // Sync failure is non-fatal (e.g., expired token will redirect to login)
       }
 
       set({ token: tokenStr, user, keyPair, isInitialized: true });
@@ -118,10 +144,29 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (existing) return existing;
 
     const currentUser = get().user;
+    if (currentUser?.id) {
+      // Try loading from local storage first
+      const loaded = await loadKeyPairForUser(currentUser.id);
+      if (loaded) {
+        set({ keyPair: loaded });
+        return loaded;
+      }
+    }
+
+    // Generate new keypair only as last resort
     const kp = generateKeyPair();
 
     if (currentUser?.id) {
       await saveKeyPairForUser(currentUser.id, kp);
+      // Sync the new public key to the server so it stays consistent
+      const currentToken = get().token;
+      if (currentToken) {
+        try {
+          await syncPublicKey(currentToken, kp);
+        } catch (err) {
+          console.warn('Failed to sync new public key to server:', err);
+        }
+      }
     }
 
     set({ keyPair: kp });
@@ -140,14 +185,43 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Login failed');
 
+      // 1. Try to load keypair from local storage (same device)
       let keyPair = await loadKeyPairForUser(data.user.id);
+      const serverHasBackup = Boolean(data.encryptedPrivateKey && data.keySalt && data.keyNonce);
 
-      if (!keyPair) {
-        keyPair = generateKeyPair();
-        await saveKeyPairForUser(data.user.id, keyPair);
+      // 2. If no local key, try to recover from server backup
+      if (!keyPair && serverHasBackup) {
+        console.log('[KeyRecovery] Attempting to recover keypair from server backup...');
+        const secretKey = await decryptPrivateKeyWithPassword(
+          data.encryptedPrivateKey,
+          data.keySalt,
+          data.keyNonce,
+          password
+        );
+        if (secretKey) {
+          const nacl = (await import('tweetnacl')).default;
+          keyPair = nacl.box.keyPair.fromSecretKey(secretKey);
+          await saveKeyPairForUser(data.user.id, keyPair);
+          console.log('[KeyRecovery] Successfully recovered keypair from server backup');
+        } else {
+          console.warn('[KeyRecovery] Failed to decrypt server backup — wrong password or corrupted data');
+        }
       }
 
-      await syncPublicKey(data.token, keyPair);
+      // 3. Only generate a new keypair as a last resort (no local key, no server backup).
+      // This means old messages encrypted with a previous keypair will be unreadable.
+      let generatedNewKeyPair = false;
+      if (!keyPair) {
+        console.warn('[KeyRecovery] No local or server-backed keypair found; generating new keypair. Old encrypted messages will be unreadable.');
+        keyPair = generateKeyPair();
+        await saveKeyPairForUser(data.user.id, keyPair);
+        generatedNewKeyPair = true;
+      }
+
+      // Upload encrypted backup whenever a new keypair was generated or
+      // the server doesn't have a backup yet (e.g., legacy account).
+      const needsBackupUpload = generatedNewKeyPair || !serverHasBackup;
+      await syncPublicKey(data.token, keyPair, needsBackupUpload ? password : undefined);
 
       await Promise.all([
         AsyncStorage.setItem(STORAGE_KEYS.TOKEN, data.token),
@@ -168,10 +242,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { encodeBase64 } = await import('tweetnacl-util');
       const publicKeyB64 = encodeBase64(keyPair.publicKey);
 
+      // Encrypt the private key with the password for server-side backup
+      const encryptedKeyData = await encryptPrivateKeyWithPassword(keyPair.secretKey, password);
+
       const response = await fetch(`${API_BASE}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password, publicKey: publicKeyB64 }),
+        body: JSON.stringify({
+          username,
+          password,
+          publicKey: publicKeyB64,
+          encryptedPrivateKey: encryptedKeyData.encryptedPrivateKey,
+          keySalt: encryptedKeyData.keySalt,
+          keyNonce: encryptedKeyData.keyNonce,
+        }),
       });
 
       const data = await response.json();
