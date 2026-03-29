@@ -187,11 +187,6 @@ export default function ChatScreen({ navigation, route }: Props) {
         return keyPair.publicKey;
       }
 
-      const fromMembers = members.find((m) => m.id === userId)?.publicKey;
-      if (fromMembers) {
-        return decodeBase64(fromMembers);
-      }
-
       if (publicKeyCacheRef.current.has(userId)) {
         const cached = publicKeyCacheRef.current.get(userId);
         return cached ? decodeBase64(cached) : null;
@@ -201,17 +196,24 @@ export default function ChatScreen({ navigation, route }: Props) {
         const res = await fetch(`${API_BASE}/api/users/${userId}/publicKey`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (!res.ok) {
-          publicKeyCacheRef.current.set(userId, null);
-          return null;
+        if (res.ok) {
+          const data = await res.json();
+          const publicKey = data?.publicKey ?? null;
+          publicKeyCacheRef.current.set(userId, publicKey);
+          return publicKey ? decodeBase64(publicKey) : null;
         }
-        const data = await res.json();
-        const publicKey = data?.publicKey ?? null;
-        publicKeyCacheRef.current.set(userId, publicKey);
-        return publicKey ? decodeBase64(publicKey) : null;
       } catch {
-        return null;
+        // Fall through to members fallback
       }
+
+      const fromMembers = members.find((m) => m.id === userId)?.publicKey;
+      if (fromMembers) {
+        publicKeyCacheRef.current.set(userId, fromMembers);
+        return decodeBase64(fromMembers);
+      }
+
+      publicKeyCacheRef.current.set(userId, null);
+      return null;
     },
     [keyPair, members, token, user?.id]
   );
@@ -231,12 +233,25 @@ export default function ChatScreen({ navigation, route }: Props) {
         } else {
           // nacl.box DH is symmetric: always use the other member's public key
           const otherMember = members.find((m) => m.id !== user?.id);
-          const otherPubKey = otherMember ? await getUserPublicKey(otherMember.id) : null;
+          if (!otherMember) return { ...msg, decryptedContent: '[Encrypted message]' };
+
+          const otherPubKey = await getUserPublicKey(otherMember.id);
           if (!otherPubKey) return { ...msg, decryptedContent: '[Encrypted message]' };
 
           const payload = parseEncryptedPayload(msg.content);
           if (!payload) return { ...msg, decryptedContent: '[Encrypted message]' };
-          const decrypted = decryptMessage(payload, otherPubKey, keyPair.secretKey);
+
+          let decrypted = decryptMessage(payload, otherPubKey, keyPair.secretKey);
+
+          // If decryption failed, the cached key may be stale — fetch fresh and retry
+          if (!decrypted) {
+            publicKeyCacheRef.current.delete(otherMember.id);
+            const freshPubKey = await getUserPublicKey(otherMember.id);
+            if (freshPubKey) {
+              decrypted = decryptMessage(payload, freshPubKey, keyPair.secretKey);
+            }
+          }
+
           return { ...msg, decryptedContent: decrypted || '[Unable to decrypt]' };
         }
       } catch {
@@ -305,10 +320,12 @@ export default function ChatScreen({ navigation, route }: Props) {
           }
         } else {
           const recipient = members.find((m) => m.id !== user?.id);
-          if (recipient?.publicKey) {
-            const recipientPubKey = decodeBase64(recipient.publicKey);
-            payload = encryptMessage(text, recipientPubKey, keyPair.secretKey);
-            isEncrypted = true;
+          if (recipient) {
+            const recipientPubKey = await getUserPublicKey(recipient.id);
+            if (recipientPubKey) {
+              payload = encryptMessage(text, recipientPubKey, keyPair.secretKey);
+              isEncrypted = true;
+            }
           }
         }
 
