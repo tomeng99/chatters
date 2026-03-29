@@ -6,10 +6,12 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   ScrollView,
+  Platform,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { AppStackParamList } from '../navigation/AppNavigator';
 import { useAuthStore } from '../store/authStore';
+import { requestNotificationPermission, getNotificationPermission } from '../services/notificationService';
 import { colors, typography, spacing, borderRadius } from '../theme';
 
 type Props = { navigation: StackNavigationProp<AppStackParamList, 'Settings'> };
@@ -30,6 +32,7 @@ export default function SettingsScreen({ navigation }: Props) {
   const [preference, setPreference] = useState<NotificationPreference>('all');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [browserPermission, setBrowserPermission] = useState<string>('default');
 
   const fetchSettings = useCallback(async () => {
     setLoading(true);
@@ -49,6 +52,15 @@ export default function SettingsScreen({ navigation }: Props) {
   useEffect(() => {
     fetchSettings();
   }, [fetchSettings]);
+
+  useEffect(() => {
+    setBrowserPermission(getNotificationPermission());
+  }, []);
+
+  const handleEnableBrowserNotifications = async () => {
+    const granted = await requestNotificationPermission();
+    setBrowserPermission(granted ? 'granted' : getNotificationPermission());
+  };
 
   const updatePreference = async (value: NotificationPreference) => {
     const previousValue = preference;
@@ -131,6 +143,36 @@ export default function SettingsScreen({ navigation }: Props) {
             </View>
           </TouchableOpacity>
         ))}
+        {Platform.OS === 'web' && (
+          <View style={styles.browserNotifSection}>
+            <Text style={styles.browserNotifTitle}>Browser Notifications</Text>
+            {browserPermission === 'granted' ? (
+              <View style={styles.browserNotifStatus}>
+                <Text style={styles.browserNotifEnabled}>✅ Browser notifications enabled</Text>
+              </View>
+            ) : browserPermission === 'denied' ? (
+              <View style={styles.browserNotifStatus}>
+                <Text style={styles.browserNotifDenied}>
+                  ❌ Browser notifications blocked. Please enable them in your browser settings.
+                </Text>
+              </View>
+            ) : browserPermission === 'unsupported' ? (
+              <View style={styles.browserNotifStatus}>
+                <Text style={styles.browserNotifDenied}>
+                  Browser notifications are not supported in this browser.
+                </Text>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={styles.enableButton}
+                onPress={handleEnableBrowserNotifications}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.enableButtonText}>🔔 Enable Browser Notifications</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
       </View>
     </ScrollView>
   );
@@ -237,5 +279,40 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizeXS,
     color: colors.textSecondary,
     marginTop: 2,
+  },
+  browserNotifSection: {
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  browserNotifTitle: {
+    fontSize: typography.fontSizeSM,
+    fontWeight: typography.fontWeightSemiBold,
+    color: colors.text,
+    marginBottom: spacing.sm,
+  },
+  browserNotifStatus: {
+    paddingVertical: spacing.sm,
+  },
+  browserNotifEnabled: {
+    fontSize: typography.fontSizeSM,
+    color: colors.success,
+  },
+  browserNotifDenied: {
+    fontSize: typography.fontSizeSM,
+    color: colors.textSecondary,
+  },
+  enableButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+  },
+  enableButtonText: {
+    color: colors.background,
+    fontSize: typography.fontSizeMD,
+    fontWeight: typography.fontWeightSemiBold,
   },
 });
