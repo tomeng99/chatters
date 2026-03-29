@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Linking, Platform } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Linking } from 'react-native';
 import { colors, typography, spacing, borderRadius } from '../theme';
 import EncryptionBadge from './EncryptionBadge';
 
@@ -28,15 +28,19 @@ function isEmojiOnly(text: string): boolean {
   return emojiRegex.test(text.trim()) && text.trim().length <= 32;
 }
 
-// URL regex for detecting links in text
-const URL_REGEX = /https?:\/\/[^\s<>\"')\]]+/gi;
+// URL pattern for detecting links in text
+const URL_PATTERN = 'https?://[^\\s<>"\'\\)\\]]+';
+
+function hasUrls(text: string): boolean {
+  return new RegExp(URL_PATTERN, 'i').test(text);
+}
 
 function renderTextWithLinks(text: string, isSent: boolean) {
   const parts: React.ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
-  const regex = new RegExp(URL_REGEX.source, 'gi');
+  const regex = new RegExp(URL_PATTERN, 'gi');
   while ((match = regex.exec(text)) !== null) {
     // Add text before the link
     if (match.index > lastIndex) {
@@ -82,7 +86,7 @@ export default function MessageBubble({
 }: MessageBubbleProps) {
   const [imageError, setImageError] = useState(false);
   const emojiOnly = messageType === 'text' && isEmojiOnly(content);
-  const hasLinks = messageType === 'text' && URL_REGEX.test(content);
+  const containsLinks = messageType === 'text' && hasUrls(content);
 
   const resolveUrl = useCallback((url: string) => {
     if (url.startsWith('http://') || url.startsWith('https://')) return url;
@@ -161,7 +165,7 @@ export default function MessageBubble({
 
     return (
       <Text style={[styles.content, isSent ? styles.contentSent : styles.contentReceived]}>
-        {hasLinks ? renderTextWithLinks(content, isSent) : content}
+        {containsLinks ? renderTextWithLinks(content, isSent) : content}
       </Text>
     );
   };

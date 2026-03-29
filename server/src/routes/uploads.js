@@ -40,7 +40,24 @@ const ALL_ALLOWED_TYPES = [
   ...ALLOWED_DOC_TYPES,
 ];
 
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+const JPEG_QUALITY = 85;
+const MAX_IMAGE_DIMENSION = 2048;
+
+// Map MIME types to safe file extensions
+const MIME_TO_EXT = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/gif': '.gif',
+  'image/webp': '.webp',
+  'image/heic': '.jpg',
+  'image/heif': '.jpg',
+  'video/mp4': '.mp4',
+  'video/quicktime': '.mov',
+  'video/webm': '.webm',
+  'video/mpeg': '.mpeg',
+  'application/pdf': '.pdf',
+};
 
 const upload = multer({
   limits: { fileSize: MAX_FILE_SIZE },
@@ -74,18 +91,21 @@ router.post('/', upload.single('file'), async (req, res) => {
     let outputFileName;
     let finalBuffer = buffer;
 
+    // Derive extension from verified MIME type (not from client-provided filename)
+    const safeExt = MIME_TO_EXT[mimetype] || '.bin';
+
     // Convert HEIC/HEIF to JPEG
     if (mimetype === 'image/heic' || mimetype === 'image/heif') {
-      finalBuffer = await sharp(buffer).jpeg({ quality: 85 }).toBuffer();
+      finalBuffer = await sharp(buffer).jpeg({ quality: JPEG_QUALITY }).toBuffer();
       outputFileName = `${fileId}.jpg`;
     } else if (fileType === 'image' && mimetype !== 'image/gif') {
       // Optimize other images (except GIFs to preserve animation)
       finalBuffer = await sharp(buffer)
-        .resize(2048, 2048, { fit: 'inside', withoutEnlargement: true })
+        .resize(MAX_IMAGE_DIMENSION, MAX_IMAGE_DIMENSION, { fit: 'inside', withoutEnlargement: true })
         .toBuffer();
-      outputFileName = `${fileId}${path.extname(originalname).toLowerCase() || '.jpg'}`;
+      outputFileName = `${fileId}${safeExt}`;
     } else {
-      outputFileName = `${fileId}${path.extname(originalname).toLowerCase()}`;
+      outputFileName = `${fileId}${safeExt}`;
     }
 
     const outputPath = path.join(UPLOADS_DIR, outputFileName);
