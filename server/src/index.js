@@ -3,6 +3,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const rateLimit = require('express-rate-limit');
 
 const db = require('./config/database');
 const authRoutes = require('./routes/auth');
@@ -31,6 +32,22 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' },
+});
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' },
+});
+
 const io = new Server(server, {
   cors: {
     origin: '*',
@@ -45,9 +62,9 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: Date.now() });
 });
 
-app.use('/api/auth', authRoutes);
-app.use('/api/conversations', conversationRoutes);
-app.use('/api/users', userRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/conversations', apiLimiter, conversationRoutes);
+app.use('/api/users', apiLimiter, userRoutes);
 
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
