@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 
 function getApiBase(): string {
   if (process.env.EXPO_PUBLIC_API_URL) {
-    return process.env.EXPO_PUBLIC_API_URL;
+    return process.env.EXPO_PUBLIC_API_URL.trim().replace(/\/+$/, '');
   }
 
   // In development, derive the server host automatically so that mobile
