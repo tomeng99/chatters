@@ -21,12 +21,15 @@ if (!process.env.JWT_SECRET) {
 const app = express();
 const server = http.createServer(app);
 
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',')
+const hasExplicitOrigins = !!process.env.ALLOWED_ORIGINS;
+const allowedOrigins = hasExplicitOrigins
+  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()).filter(Boolean)
   : ['http://localhost:8081', 'http://localhost:19006', 'http://localhost:3000'];
 
 // Accept requests from private-network IPs so LAN clients (mobile devices,
 // other PCs) work out of the box without configuring ALLOWED_ORIGINS.
+// Only used when ALLOWED_ORIGINS is not explicitly set, so production
+// deployments can fully lock down CORS.
 function isPrivateOrigin(origin) {
   try {
     const { hostname } = new URL(origin);
@@ -45,7 +48,7 @@ function isPrivateOrigin(origin) {
 
 const corsOptions = {
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin) || isPrivateOrigin(origin)) {
+    if (!origin || allowedOrigins.includes(origin) || (!hasExplicitOrigins && isPrivateOrigin(origin))) {
       callback(null, true);
     } else {
       callback(new Error(`Origin '${origin}' not allowed by CORS`));

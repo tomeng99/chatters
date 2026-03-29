@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, Linking } from 'react-native';
 import { colors, typography, spacing, borderRadius } from '../theme';
 import EncryptionBadge from './EncryptionBadge';
+import { API_BASE } from '../config';
 
 interface MessageBubbleProps {
   content: string;
@@ -13,8 +14,6 @@ interface MessageBubbleProps {
   messageType?: 'text' | 'image' | 'video' | 'file';
   fileName?: string | null;
 }
-
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001';
 
 function formatTime(ts: number): string {
   const d = new Date(ts * 1000);

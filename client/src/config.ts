@@ -18,8 +18,10 @@ function getApiBase(): string {
 
   // Web: use the hostname the browser used to load the page, so another PC
   // that opened http://192.168.1.50:8081 will call http://192.168.1.50:3001.
+  // Derive the protocol from the page so HTTPS deployments work correctly.
   if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.hostname) {
-    return `http://${window.location.hostname}:3001`;
+    const protocol = window.location.protocol === 'https:' ? 'https' : 'http';
+    return `${protocol}://${window.location.hostname}:3001`;
   }
 
   return 'http://localhost:3001';
