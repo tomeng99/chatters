@@ -10,6 +10,7 @@ import {
   Platform,
   ActivityIndicator,
   NativeSyntheticEvent,
+  TextInputKeyPressEventData,
   NativeScrollEvent,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -334,6 +335,13 @@ export default function ChatScreen({ navigation, route }: Props) {
     }
   };
 
+  const handleKeyPress = (e: NativeSyntheticEvent<TextInputKeyPressEventData>) => {
+    if (e.nativeEvent.key === 'Enter' && !(e.nativeEvent as unknown as { shiftKey?: boolean }).shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
   const handleInputChange = (text: string) => {
     setInputText(text);
     socketService.emitTyping(conversationId, true);
@@ -413,6 +421,7 @@ export default function ChatScreen({ navigation, route }: Props) {
             multiline
             maxLength={2000}
             returnKeyType="default"
+            onKeyPress={handleKeyPress}
           />
           <TouchableOpacity
             style={[styles.sendButton, (!inputText.trim() || sending) && styles.sendButtonDisabled]}
