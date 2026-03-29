@@ -269,6 +269,7 @@ export default function ChatScreen({ navigation, route }: Props) {
     >
       <FlatList
         ref={flatListRef}
+        style={styles.flatList}
         data={messages}
         keyExtractor={(item) => item.id}
         renderItem={({ item, index }) => {
@@ -350,6 +351,9 @@ const styles = StyleSheet.create({
   headerSubtitleText: {
     fontSize: typography.fontSizeXS,
     color: colors.success,
+  },
+  flatList: {
+    flex: 1,
   },
   messageList: {
     paddingVertical: spacing.sm,
