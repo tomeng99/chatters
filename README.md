@@ -48,19 +48,22 @@ chatters/
 
 - Node.js 20+
 - npm
-- PostgreSQL 14+
+- Podman 4+
+- podman-compose (or `podman compose` plugin)
 
 ### 1. Backend Setup
 
 ```bash
-cd server
-cp .env.example .env
-# Edit .env: set a strong JWT_SECRET and your PostgreSQL credentials
-npm install
-npm start
-```
+# Install once (Ubuntu/Debian)
+sudo apt update
+sudo apt install -y podman podman-compose
 
-Server runs on `http://localhost:3001`.
+# In project root: starts PostgreSQL + backend
+JWT_SECRET=dev-secret POSTGRES_PASSWORD=chatters podman-compose up -d
+
+# Health check
+curl http://localhost:3001/health
+```
 
 ### 2. Frontend Setup
 
@@ -71,12 +74,13 @@ npx expo start --web   # Open in web browser
 npx expo start         # Open in Expo Go (mobile)
 ```
 
-### 3. Docker (recommended for production)
+### 3. Stop Podman Services
 
 ```bash
-# In project root — starts both PostgreSQL and the server
-JWT_SECRET=your-strong-secret POSTGRES_PASSWORD=your-db-password docker-compose up -d
+podman-compose down
 ```
+
+If your system uses the compose plugin command, replace `podman-compose` with `podman compose`.
 
 ---
 

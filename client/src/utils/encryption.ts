@@ -1,5 +1,5 @@
 import nacl from 'tweetnacl';
-import { encodeUTF8, decodeUTF8, encodeBase64, decodeBase64 } from 'tweetnacl-util';
+import { decodeUTF8, encodeBase64, decodeBase64 } from 'tweetnacl-util';
 
 const textDecoder = new TextDecoder();
 
@@ -37,7 +37,7 @@ export function encryptMessage(
   senderSecretKey: Uint8Array
 ): EncryptedPayload {
   const nonce = nacl.randomBytes(nacl.box.nonceLength);
-  const messageBytes = encodeUTF8(message);
+  const messageBytes = decodeUTF8(message);
   const encrypted = nacl.box(messageBytes, nonce, recipientPublicKey, senderSecretKey);
 
   if (!encrypted) {
@@ -71,7 +71,7 @@ export function encryptGroupMessage(
   sharedKey: Uint8Array
 ): EncryptedPayload {
   const nonce = nacl.randomBytes(nacl.secretbox.nonceLength);
-  const messageBytes = encodeUTF8(message);
+  const messageBytes = decodeUTF8(message);
   const encrypted = nacl.secretbox(messageBytes, nonce, sharedKey);
 
   if (!encrypted) {
@@ -101,38 +101,6 @@ export function decryptGroupMessage(
 
 export function generateSharedKey(): Uint8Array {
   return nacl.randomBytes(nacl.secretbox.keyLength);
-}
-
-export function encryptSharedKeyForRecipient(
-  sharedKey: Uint8Array,
-  recipientPublicKey: Uint8Array,
-  senderSecretKey: Uint8Array
-): EncryptedPayload {
-  const nonce = nacl.randomBytes(nacl.box.nonceLength);
-  const encrypted = nacl.box(sharedKey, nonce, recipientPublicKey, senderSecretKey);
-
-  if (!encrypted) {
-    throw new Error('Failed to encrypt shared key');
-  }
-
-  return {
-    ciphertext: encodeBase64(encrypted),
-    nonce: encodeBase64(nonce),
-  };
-}
-
-export function decryptSharedKey(
-  payload: EncryptedPayload,
-  senderPublicKey: Uint8Array,
-  recipientSecretKey: Uint8Array
-): Uint8Array | null {
-  try {
-    const ciphertext = decodeBase64(payload.ciphertext);
-    const nonce = decodeBase64(payload.nonce);
-    return nacl.box.open(ciphertext, nonce, senderPublicKey, recipientSecretKey);
-  } catch {
-    return null;
-  }
 }
 
 export function serializeEncryptedPayload(payload: EncryptedPayload): string {

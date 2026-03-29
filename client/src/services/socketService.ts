@@ -85,7 +85,7 @@ class SocketService {
         'send_message',
         { conversationId, content, iv, isEncrypted },
         (response: { success?: boolean; message?: Message; error?: string }) => {
-          resolve(response);
+          resolve({ ...response, success: response.success ?? false });
         }
       );
     });

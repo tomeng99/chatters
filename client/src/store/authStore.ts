@@ -15,6 +15,48 @@ const STORAGE_KEYS = {
   KEY_PAIR: 'chatters_keypair',
 };
 
+const getUserKeyPairStorageKey = (userId: string) => `chatters_keypair_${userId}`;
+
+async function loadKeyPairForUser(userId: string): Promise<KeyPair | null> {
+  const scopedKey = getUserKeyPairStorageKey(userId);
+  const scopedKeyPair = await AsyncStorage.getItem(scopedKey);
+  if (scopedKeyPair) {
+    return keyPairFromBase64(JSON.parse(scopedKeyPair));
+  }
+
+  // One-time migration from legacy global key storage.
+  const legacyKeyPair = await AsyncStorage.getItem(STORAGE_KEYS.KEY_PAIR);
+  if (!legacyKeyPair) return null;
+
+  await AsyncStorage.setItem(scopedKey, legacyKeyPair);
+  await AsyncStorage.removeItem(STORAGE_KEYS.KEY_PAIR);
+  return keyPairFromBase64(JSON.parse(legacyKeyPair));
+}
+
+async function saveKeyPairForUser(userId: string, keyPair: KeyPair): Promise<void> {
+  const b64 = keyPairToBase64(keyPair);
+  await AsyncStorage.setItem(getUserKeyPairStorageKey(userId), JSON.stringify(b64));
+}
+
+async function syncPublicKey(token: string, keyPair: KeyPair): Promise<void> {
+  const { encodeBase64 } = await import('tweetnacl-util');
+  const publicKey = encodeBase64(keyPair.publicKey);
+
+  const res = await fetch(`${API_BASE}/api/auth/public-key`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ publicKey }),
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to sync public key');
+  }
+}
+
 interface User {
   id: string;
   username: string;
@@ -44,19 +86,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   initialize: async () => {
     try {
-      const [tokenStr, userStr, keyPairStr] = await Promise.all([
+      const [tokenStr, userStr] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.TOKEN),
         AsyncStorage.getItem(STORAGE_KEYS.USER),
-        AsyncStorage.getItem(STORAGE_KEYS.KEY_PAIR),
       ]);
 
-      if (tokenStr && userStr) {
-        const user = JSON.parse(userStr);
-        const keyPair = keyPairStr ? keyPairFromBase64(JSON.parse(keyPairStr)) : null;
-        set({ token: tokenStr, user, keyPair, isInitialized: true });
-      } else {
+      if (!tokenStr || !userStr) {
         set({ isInitialized: true });
+        return;
       }
+
+      const user = JSON.parse(userStr) as User;
+      const keyPair = await loadKeyPairForUser(user.id);
+      set({ token: tokenStr, user, keyPair, isInitialized: true });
     } catch {
       set({ isInitialized: true });
     }
@@ -66,9 +108,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const existing = get().keyPair;
     if (existing) return existing;
 
+    const currentUser = get().user;
     const kp = generateKeyPair();
-    const b64 = keyPairToBase64(kp);
-    await AsyncStorage.setItem(STORAGE_KEYS.KEY_PAIR, JSON.stringify(b64));
+
+    if (currentUser?.id) {
+      await saveKeyPairForUser(currentUser.id, kp);
+    }
+
     set({ keyPair: kp });
     return kp;
   },
@@ -85,28 +131,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Login failed');
 
-      const kpStr = await AsyncStorage.getItem(STORAGE_KEYS.KEY_PAIR);
-      let keyPair: KeyPair;
+      let keyPair = await loadKeyPairForUser(data.user.id);
 
-      if (kpStr) {
-        keyPair = keyPairFromBase64(JSON.parse(kpStr));
-      } else {
+      if (!keyPair) {
         keyPair = generateKeyPair();
-        const b64 = keyPairToBase64(keyPair);
-        await AsyncStorage.setItem(STORAGE_KEYS.KEY_PAIR, JSON.stringify(b64));
-
-        const { decodeBase64, encodeBase64 } = await import('tweetnacl-util');
-        const pubKeyB64 = encodeBase64(keyPair.publicKey);
-
-        await fetch(`${API_BASE}/api/auth/public-key`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${data.token}`,
-          },
-          body: JSON.stringify({ publicKey: pubKeyB64 }),
-        });
+        await saveKeyPairForUser(data.user.id, keyPair);
       }
+
+      await syncPublicKey(data.token, keyPair);
 
       await Promise.all([
         AsyncStorage.setItem(STORAGE_KEYS.TOKEN, data.token),
@@ -136,12 +168,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Registration failed');
 
-      const b64 = keyPairToBase64(keyPair);
-
       await Promise.all([
         AsyncStorage.setItem(STORAGE_KEYS.TOKEN, data.token),
         AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(data.user)),
-        AsyncStorage.setItem(STORAGE_KEYS.KEY_PAIR, JSON.stringify(b64)),
+        saveKeyPairForUser(data.user.id, keyPair),
       ]);
 
       set({ token: data.token, user: data.user, keyPair, isLoading: false });

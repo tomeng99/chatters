@@ -52,6 +52,7 @@ export default function ChatScreen({ navigation, route }: Props) {
   const [groupSharedKey, setGroupSharedKey] = useState<Uint8Array | null>(null);
   const flatListRef = useRef<FlatList>(null);
   const typingTimeoutRef = useRef<any>(null);
+  const publicKeyCacheRef = useRef<Map<string, string | null>>(new Map());
 
   useEffect(() => {
     navigation.setOptions({
@@ -87,31 +88,71 @@ export default function ChatScreen({ navigation, route }: Props) {
     }
   }, [isGroup, getOrCreateGroupSharedKey]);
 
+  const getUserPublicKey = useCallback(
+    async (userId: string): Promise<Uint8Array | null> => {
+      if (!keyPair) return null;
+
+      if (userId === user?.id) {
+        return keyPair.publicKey;
+      }
+
+      const fromMembers = members.find((m) => m.id === userId)?.publicKey;
+      if (fromMembers) {
+        return decodeBase64(fromMembers);
+      }
+
+      if (publicKeyCacheRef.current.has(userId)) {
+        const cached = publicKeyCacheRef.current.get(userId);
+        return cached ? decodeBase64(cached) : null;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/api/users/${userId}/publicKey`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) {
+          publicKeyCacheRef.current.set(userId, null);
+          return null;
+        }
+        const data = await res.json();
+        const publicKey = data?.publicKey ?? null;
+        publicKeyCacheRef.current.set(userId, publicKey);
+        return publicKey ? decodeBase64(publicKey) : null;
+      } catch {
+        return null;
+      }
+    },
+    [keyPair, members, token, user?.id]
+  );
+
   const decryptDisplayMessage = useCallback(
     async (msg: Message): Promise<DisplayMessage> => {
       if (!msg.isEncrypted || !keyPair) return { ...msg, decryptedContent: msg.content };
 
       try {
-        const payload = parseEncryptedPayload(msg.content);
-        if (!payload) return { ...msg, decryptedContent: '[Encrypted message]' };
-
         if (isGroup) {
+          const payload = parseEncryptedPayload(msg.content);
+          if (!payload) return { ...msg, decryptedContent: '[Encrypted message]' };
           const gKey = groupSharedKey || (await getOrCreateGroupSharedKey());
           if (!gKey) return { ...msg, decryptedContent: '[Encrypted message]' };
           const decrypted = decryptGroupMessage(payload, gKey);
           return { ...msg, decryptedContent: decrypted || '[Unable to decrypt]' };
         } else {
-          const sender = members.find((m) => m.id === msg.sender.id);
-          if (!sender?.publicKey) return { ...msg, decryptedContent: '[Encrypted message]' };
-          const senderPubKey = decodeBase64(sender.publicKey);
-          const decrypted = decryptMessage(payload, senderPubKey, keyPair.secretKey);
+          // nacl.box DH is symmetric: always use the other member's public key
+          const otherMember = members.find((m) => m.id !== user?.id);
+          const otherPubKey = otherMember ? await getUserPublicKey(otherMember.id) : null;
+          if (!otherPubKey) return { ...msg, decryptedContent: '[Encrypted message]' };
+
+          const payload = parseEncryptedPayload(msg.content);
+          if (!payload) return { ...msg, decryptedContent: '[Encrypted message]' };
+          const decrypted = decryptMessage(payload, otherPubKey, keyPair.secretKey);
           return { ...msg, decryptedContent: decrypted || '[Unable to decrypt]' };
         }
       } catch {
         return { ...msg, decryptedContent: '[Decryption error]' };
       }
     },
-    [keyPair, isGroup, members, groupSharedKey, getOrCreateGroupSharedKey]
+    [keyPair, isGroup, groupSharedKey, getOrCreateGroupSharedKey, getUserPublicKey, user?.id]
   );
 
   const fetchMessages = useCallback(async () => {
