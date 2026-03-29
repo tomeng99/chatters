@@ -103,6 +103,40 @@ export function generateSharedKey(): Uint8Array {
   return nacl.randomBytes(nacl.secretbox.keyLength);
 }
 
+export function encryptGroupKeyForMember(
+  groupKey: Uint8Array,
+  recipientPublicKey: Uint8Array,
+  senderSecretKey: Uint8Array
+): EncryptedPayload {
+  const nonce = nacl.randomBytes(nacl.box.nonceLength);
+  const encrypted = nacl.box(groupKey, nonce, recipientPublicKey, senderSecretKey);
+
+  if (!encrypted) {
+    throw new Error('Failed to encrypt group key for member');
+  }
+
+  return {
+    ciphertext: encodeBase64(encrypted),
+    nonce: encodeBase64(nonce),
+  };
+}
+
+export function decryptGroupKeyFromSender(
+  encryptedKey: string,
+  nonce: string,
+  senderPublicKey: Uint8Array,
+  recipientSecretKey: Uint8Array
+): Uint8Array | null {
+  try {
+    const ciphertext = decodeBase64(encryptedKey);
+    const nonceBytes = decodeBase64(nonce);
+    const decrypted = nacl.box.open(ciphertext, nonceBytes, senderPublicKey, recipientSecretKey);
+    return decrypted || null;
+  } catch {
+    return null;
+  }
+}
+
 export function serializeEncryptedPayload(payload: EncryptedPayload): string {
   return JSON.stringify(payload);
 }

@@ -64,6 +64,21 @@ async function initializeDatabase() {
       )
     `);
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS group_keys (
+        conversation_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        encrypted_key TEXT NOT NULL,
+        nonce TEXT NOT NULL,
+        sender_id TEXT NOT NULL,
+        created_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
+        PRIMARY KEY (conversation_id, user_id),
+        FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
     await client.query(
       'CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id)'
     );
