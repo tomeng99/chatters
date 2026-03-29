@@ -52,12 +52,15 @@ function setupSocket(io) {
 
     socket.on('send_message', async (data, callback) => {
       try {
-        const { conversationId, content, iv, isEncrypted } = data;
+        const { conversationId, content, iv, isEncrypted, messageType, fileName } = data;
 
         if (!conversationId || !content) {
           if (callback) callback({ error: 'conversationId and content are required' });
           return;
         }
+
+        const validTypes = ['text', 'image', 'video', 'file'];
+        const msgType = validTypes.includes(messageType) ? messageType : 'text';
 
         const memberResult = await pool.query(
           'SELECT 1 FROM conversation_members WHERE conversation_id = $1 AND user_id = $2',
@@ -73,8 +76,8 @@ function setupSocket(io) {
         const now = getUnixTimestamp();
 
         await pool.query(
-          'INSERT INTO messages (id, conversation_id, sender_id, content, iv, is_encrypted, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-          [messageId, conversationId, socket.user.id, content, iv || null, Boolean(isEncrypted), now]
+          'INSERT INTO messages (id, conversation_id, sender_id, content, iv, is_encrypted, message_type, file_name, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
+          [messageId, conversationId, socket.user.id, content, iv || null, Boolean(isEncrypted), msgType, fileName || null, now]
         );
 
         const message = {
@@ -83,6 +86,8 @@ function setupSocket(io) {
           content,
           iv: iv || null,
           isEncrypted: Boolean(isEncrypted),
+          messageType: msgType,
+          fileName: fileName || null,
           createdAt: now,
           sender: { id: socket.user.id, username: socket.user.username },
         };

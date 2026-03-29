@@ -58,10 +58,31 @@ async function initializeDatabase() {
         content TEXT NOT NULL,
         iv TEXT,
         is_encrypted BOOLEAN NOT NULL DEFAULT FALSE,
+        message_type TEXT NOT NULL DEFAULT 'text',
+        file_name TEXT,
         created_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
         FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
         FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE
       )
+    `);
+
+    // Add message_type and file_name columns if they don't exist (migration for existing DBs)
+    await client.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'messages' AND column_name = 'message_type'
+        ) THEN
+          ALTER TABLE messages ADD COLUMN message_type TEXT NOT NULL DEFAULT 'text';
+        END IF;
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'messages' AND column_name = 'file_name'
+        ) THEN
+          ALTER TABLE messages ADD COLUMN file_name TEXT;
+        END IF;
+      END $$
     `);
 
     await client.query(`
