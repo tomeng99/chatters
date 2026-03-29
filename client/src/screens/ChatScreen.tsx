@@ -38,13 +38,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { colors, typography, spacing, borderRadius, shadows } from '../theme';
+import { API_BASE } from '../config';
 
 type Props = {
   navigation: StackNavigationProp<AppStackParamList, 'Chat'>;
   route: RouteProp<AppStackParamList, 'Chat'>;
 };
-
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001';
 
 interface DisplayMessage extends Message {
   decryptedContent?: string;

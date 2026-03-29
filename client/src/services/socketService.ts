@@ -1,6 +1,5 @@
 import { io, Socket } from 'socket.io-client';
-
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001';
+import { API_BASE } from '../config';
 
 interface Message {
   id: string;

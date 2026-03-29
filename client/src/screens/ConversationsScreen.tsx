@@ -23,10 +23,9 @@ import {
 import { decodeBase64 } from 'tweetnacl-util';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors, typography, spacing, borderRadius, shadows } from '../theme';
+import { API_BASE } from '../config';
 
 type Props = { navigation: StackNavigationProp<AppStackParamList, 'Conversations'> };
-
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001';
 
 interface Conversation {
   id: string;
