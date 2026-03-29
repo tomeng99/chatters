@@ -27,6 +27,7 @@ services:
       - POSTGRES_USER=chatters
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-chatters}
       - POSTGRES_DB=chatters
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-}
     depends_on:
       - postgres
     restart: unless-stopped
