@@ -21,9 +21,18 @@ if (!process.env.JWT_SECRET) {
 const app = express();
 const server = http.createServer(app);
 
-const hasExplicitOrigins = !!process.env.ALLOWED_ORIGINS;
+const rawAllowedOrigins = process.env.ALLOWED_ORIGINS;
+const parsedAllowedOrigins = rawAllowedOrigins
+  ? rawAllowedOrigins.split(',').map(o => o.trim()).filter(Boolean)
+  : [];
+const hasExplicitOrigins = rawAllowedOrigins !== undefined && rawAllowedOrigins !== '';
+if (hasExplicitOrigins && parsedAllowedOrigins.length === 0) {
+  console.warn(
+    'ALLOWED_ORIGINS is set but empty after parsing; no cross-origin browser requests will be allowed.',
+  );
+}
 const allowedOrigins = hasExplicitOrigins
-  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()).filter(Boolean)
+  ? parsedAllowedOrigins
   : ['http://localhost:8081', 'http://localhost:19006', 'http://localhost:3000'];
 
 // Accept requests from private-network IPs so LAN clients (mobile devices,
@@ -33,7 +42,7 @@ const allowedOrigins = hasExplicitOrigins
 function isPrivateOrigin(origin) {
   try {
     const { hostname } = new URL(origin);
-    if (hostname === 'localhost' || hostname === '127.0.0.1') return true;
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') return true;
     // Only match actual IPv4 addresses, not domain names containing these prefixes
     if (!/^\d+\.\d+\.\d+\.\d+$/.test(hostname)) return false;
     return (
