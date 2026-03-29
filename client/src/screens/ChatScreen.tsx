@@ -23,11 +23,13 @@ import {
   encryptGroupMessage,
   decryptGroupMessage,
   generateSharedKey,
+  encryptGroupKeyForMember,
+  decryptGroupKeyFromSender,
   serializeEncryptedPayload,
   parseEncryptedPayload,
   EncryptedPayload,
 } from '../utils/encryption';
-import { decodeBase64 } from 'tweetnacl-util';
+import { decodeBase64, encodeBase64 } from 'tweetnacl-util';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors, typography, spacing, borderRadius, shadows } from '../theme';
 
@@ -69,18 +71,100 @@ export default function ChatScreen({ navigation, route }: Props) {
   }, [navigation, conversationName]);
 
   const getOrCreateGroupSharedKey = useCallback(async (): Promise<Uint8Array | null> => {
-    if (!isGroup || !keyPair) return null;
+    if (!isGroup || !keyPair || !token) return null;
+
+    // Check local cache first
     const storageKey = `group_key_${conversationId}`;
     const stored = await AsyncStorage.getItem(storageKey);
     if (stored) {
-      const { decodeBase64 } = await import('tweetnacl-util');
       return decodeBase64(stored);
     }
-    const sharedKey = generateSharedKey();
-    const { encodeBase64 } = await import('tweetnacl-util');
-    await AsyncStorage.setItem(storageKey, encodeBase64(sharedKey));
-    return sharedKey;
-  }, [isGroup, conversationId, keyPair]);
+
+    // Try to fetch the distributed key from the server
+    try {
+      const res = await fetch(`${API_BASE}/api/conversations/${conversationId}/group-key`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.exists && data.encryptedKey && data.nonce && data.senderPublicKey) {
+          const senderPubKey = decodeBase64(data.senderPublicKey);
+          const groupKey = decryptGroupKeyFromSender(
+            data.encryptedKey,
+            data.nonce,
+            senderPubKey,
+            keyPair.secretKey
+          );
+          if (groupKey) {
+            await AsyncStorage.setItem(storageKey, encodeBase64(groupKey));
+            return groupKey;
+          }
+        }
+      }
+    } catch {
+      // Fall through to generate a new key if fetch fails
+    }
+
+    // No distributed key exists yet — generate and distribute to all members
+    const groupKey = generateSharedKey();
+    const keys: { userId: string; encryptedKey: string; nonce: string }[] = [];
+
+    for (const member of members) {
+      if (!member.publicKey) continue;
+      const memberPubKey = decodeBase64(member.publicKey);
+      const encrypted = encryptGroupKeyForMember(groupKey, memberPubKey, keyPair.secretKey);
+      keys.push({
+        userId: member.id,
+        encryptedKey: encrypted.ciphertext,
+        nonce: encrypted.nonce,
+      });
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/api/conversations/${conversationId}/group-key`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ keys }),
+      });
+
+      if (res.ok || res.status === 409) {
+        // 409 means another member already distributed — re-fetch
+        if (res.status === 409) {
+          const fetchRes = await fetch(
+            `${API_BASE}/api/conversations/${conversationId}/group-key`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          if (fetchRes.ok) {
+            const data = await fetchRes.json();
+            if (data.exists && data.encryptedKey && data.nonce && data.senderPublicKey) {
+              const senderPubKey = decodeBase64(data.senderPublicKey);
+              const existingKey = decryptGroupKeyFromSender(
+                data.encryptedKey,
+                data.nonce,
+                senderPubKey,
+                keyPair.secretKey
+              );
+              if (existingKey) {
+                await AsyncStorage.setItem(storageKey, encodeBase64(existingKey));
+                return existingKey;
+              }
+            }
+          }
+          return null;
+        }
+
+        await AsyncStorage.setItem(storageKey, encodeBase64(groupKey));
+        return groupKey;
+      }
+    } catch {
+      // Distribution failed
+    }
+
+    return null;
+  }, [isGroup, conversationId, keyPair, token, members]);
 
   useEffect(() => {
     if (isGroup) {
