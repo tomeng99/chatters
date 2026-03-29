@@ -153,8 +153,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (currentToken) {
         try {
           await syncPublicKey(currentToken, kp);
-        } catch {
-          // Non-fatal: key will be synced on next login
+        } catch (err) {
+          console.warn('Failed to sync new public key to server:', err);
         }
       }
     }
@@ -194,8 +194,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
       }
 
-      // 3. Only generate a new keypair as a last resort (no local key, no server backup)
+      // 3. Only generate a new keypair as a last resort (no local key, no server backup).
+      // This means old messages encrypted with a previous keypair will be unreadable.
       if (!keyPair) {
+        console.warn('No local or server-backed keypair found; generating new keypair. Old encrypted messages will be unreadable.');
         keyPair = generateKeyPair();
         await saveKeyPairForUser(data.user.id, keyPair);
         needsBackupUpload = true;

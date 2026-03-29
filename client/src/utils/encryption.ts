@@ -161,7 +161,10 @@ export function deriveKeyFromPassword(password: string, salt: Uint8Array): Uint8
   input.set(salt);
   input.set(passwordBytes, salt.length);
 
-  // Apply multiple rounds of hashing for key stretching
+  // Apply multiple rounds of hashing for key stretching.
+  // NOTE: This is a pragmatic approach using existing dependencies. For stronger
+  // protection against GPU/ASIC attacks, upgrade to Argon2id or PBKDF2 when a
+  // suitable cross-platform library is available.
   const ROUNDS = 100000;
   let hash = nacl.hash(input);
   for (let i = 1; i < ROUNDS; i++) {
