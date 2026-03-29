@@ -14,6 +14,14 @@ import { AppStackParamList } from '../navigation/AppNavigator';
 import { useAuthStore } from '../store/authStore';
 import { socketService } from '../services/socketService';
 import ConversationItem from '../components/ConversationItem';
+import {
+  decryptMessage,
+  decryptGroupMessage,
+  decryptGroupKeyFromSender,
+  parseEncryptedPayload,
+} from '../utils/encryption';
+import { decodeBase64 } from 'tweetnacl-util';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors, typography, spacing, borderRadius, shadows } from '../theme';
 
 type Props = { navigation: StackNavigationProp<AppStackParamList, 'Conversations'> };
@@ -31,12 +39,14 @@ interface Conversation {
     createdAt: number;
     isEncrypted: boolean;
     senderUsername: string;
+    senderId?: string;
   } | null;
 }
 
 export default function ConversationsScreen({ navigation }: Props) {
-  const { token, user, logout } = useAuthStore();
+  const { token, user, logout, keyPair } = useAuthStore();
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [decryptedPreviews, setDecryptedPreviews] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -91,6 +101,75 @@ export default function ConversationsScreen({ navigation }: Props) {
     }, [fetchConversations])
   );
 
+  const decryptPreview = useCallback(
+    async (conv: Conversation): Promise<string | null> => {
+      const msg = conv.lastMessage;
+      if (!msg || !msg.isEncrypted || !keyPair) return null;
+
+      const payload = parseEncryptedPayload(msg.content);
+      if (!payload) return null;
+
+      try {
+        if (conv.isGroup) {
+          const storageKey = `group_key_${conv.id}`;
+          const stored = await AsyncStorage.getItem(storageKey);
+          if (!stored) {
+            // Try fetching from server
+            const res = await fetch(`${API_BASE}/api/conversations/${conv.id}/group-key`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res.ok) {
+              const data = await res.json();
+              if (data.exists && data.encryptedKey && data.nonce && data.senderPublicKey) {
+                const senderPubKey = decodeBase64(data.senderPublicKey);
+                const groupKey = decryptGroupKeyFromSender(
+                  data.encryptedKey, data.nonce, senderPubKey, keyPair.secretKey
+                );
+                if (groupKey) {
+                  const { encodeBase64 } = await import('tweetnacl-util');
+                  await AsyncStorage.setItem(storageKey, encodeBase64(groupKey));
+                  const decrypted = decryptGroupMessage(payload, groupKey);
+                  return decrypted;
+                }
+              }
+            }
+            return null;
+          }
+          const groupKey = decodeBase64(stored);
+          return decryptGroupMessage(payload, groupKey);
+        } else {
+          const otherMember = conv.members.find((m) => m.id !== user?.id);
+          if (!otherMember?.publicKey) return null;
+          const otherPubKey = decodeBase64(otherMember.publicKey);
+          return decryptMessage(payload, otherPubKey, keyPair.secretKey);
+        }
+      } catch {
+        return null;
+      }
+    },
+    [keyPair, token, user?.id]
+  );
+
+  useEffect(() => {
+    if (!keyPair || conversations.length === 0) return;
+    let cancelled = false;
+
+    (async () => {
+      const previews: Record<string, string> = {};
+      await Promise.all(
+        conversations.map(async (conv) => {
+          if (conv.lastMessage?.isEncrypted) {
+            const text = await decryptPreview(conv);
+            if (text && !cancelled) previews[conv.id] = text;
+          }
+        })
+      );
+      if (!cancelled) setDecryptedPreviews(previews);
+    })();
+
+    return () => { cancelled = true; };
+  }, [conversations, keyPair, decryptPreview]);
+
   const getConversationDisplayName = (conv: Conversation): string => {
     if (conv.name) return conv.name;
     const others = conv.members.filter((m) => m.id !== user?.id);
@@ -126,7 +205,7 @@ export default function ConversationsScreen({ navigation }: Props) {
             lastMessage={
               item.lastMessage
                 ? item.lastMessage.isEncrypted
-                  ? '🔒 Encrypted message'
+                  ? decryptedPreviews[item.id] || '🔒 Encrypted message'
                   : item.lastMessage.content
                 : null
             }

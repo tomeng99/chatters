@@ -115,12 +115,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const user = JSON.parse(userStr) as User;
       const keyPair = await loadKeyPairForUser(user.id);
 
-      if (keyPair) {
-        try {
-          await syncPublicKey(tokenStr, keyPair);
-        } catch {
-          // Sync failure is non-fatal (e.g., expired token will redirect to login)
-        }
+      if (!keyPair) {
+        // Local keypair is missing (e.g., new device with restored token but no keys).
+        // Force re-login so password-based recovery can run.
+        console.warn('[Init] Valid session but no local keypair — forcing re-login for key recovery');
+        await Promise.all([
+          AsyncStorage.removeItem(STORAGE_KEYS.TOKEN),
+          AsyncStorage.removeItem(STORAGE_KEYS.USER),
+        ]);
+        set({ isInitialized: true });
+        return;
+      }
+
+      try {
+        await syncPublicKey(tokenStr, keyPair);
+      } catch {
+        // Sync failure is non-fatal (e.g., expired token will redirect to login)
       }
 
       set({ token: tokenStr, user, keyPair, isInitialized: true });
@@ -177,10 +187,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       // 1. Try to load keypair from local storage (same device)
       let keyPair = await loadKeyPairForUser(data.user.id);
-      let needsBackupUpload = false;
+      const serverHasBackup = Boolean(data.encryptedPrivateKey && data.keySalt && data.keyNonce);
 
       // 2. If no local key, try to recover from server backup
-      if (!keyPair && data.encryptedPrivateKey && data.keySalt && data.keyNonce) {
+      if (!keyPair && serverHasBackup) {
+        console.log('[KeyRecovery] Attempting to recover keypair from server backup...');
         const secretKey = decryptPrivateKeyWithPassword(
           data.encryptedPrivateKey,
           data.keySalt,
@@ -191,19 +202,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           const nacl = (await import('tweetnacl')).default;
           keyPair = nacl.box.keyPair.fromSecretKey(secretKey);
           await saveKeyPairForUser(data.user.id, keyPair);
+          console.log('[KeyRecovery] Successfully recovered keypair from server backup');
+        } else {
+          console.warn('[KeyRecovery] Failed to decrypt server backup — wrong password or corrupted data');
         }
       }
 
       // 3. Only generate a new keypair as a last resort (no local key, no server backup).
       // This means old messages encrypted with a previous keypair will be unreadable.
       if (!keyPair) {
-        console.warn('No local or server-backed keypair found; generating new keypair. Old encrypted messages will be unreadable.');
+        console.warn('[KeyRecovery] No local or server-backed keypair found; generating new keypair. Old encrypted messages will be unreadable.');
         keyPair = generateKeyPair();
         await saveKeyPairForUser(data.user.id, keyPair);
-        needsBackupUpload = true;
       }
 
-      // Sync public key to server; include encrypted private key backup only for new keypairs
+      // Upload encrypted backup whenever the server doesn't have one yet,
+      // or when a brand-new keypair was just generated.
+      const needsBackupUpload = !serverHasBackup;
       await syncPublicKey(data.token, keyPair, needsBackupUpload ? password : undefined);
 
       await Promise.all([
