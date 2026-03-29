@@ -98,6 +98,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       const user = JSON.parse(userStr) as User;
       const keyPair = await loadKeyPairForUser(user.id);
+
+      if (keyPair) {
+        try {
+          await syncPublicKey(tokenStr, keyPair);
+        } catch {
+          // Sync failure is non-fatal (e.g., expired token will redirect to login)
+        }
+      }
+
       set({ token: tokenStr, user, keyPair, isInitialized: true });
     } catch {
       set({ isInitialized: true });
