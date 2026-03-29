@@ -223,4 +223,112 @@ router.get('/:id/messages', async (req, res) => {
   }
 });
 
+router.get('/:id/group-key', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const memberResult = await pool.query(
+      'SELECT 1 FROM conversation_members WHERE conversation_id = $1 AND user_id = $2',
+      [id, req.user.id]
+    );
+    if (memberResult.rows.length === 0) {
+      return res.status(403).json({ error: 'Not a member of this conversation' });
+    }
+
+    const keyResult = await pool.query(
+      `SELECT gk.encrypted_key AS "encryptedKey", gk.nonce, gk.sender_id AS "senderId",
+              u.public_key AS "senderPublicKey"
+       FROM group_keys gk
+       JOIN users u ON u.id = gk.sender_id
+       WHERE gk.conversation_id = $1 AND gk.user_id = $2`,
+      [id, req.user.id]
+    );
+
+    if (keyResult.rows.length === 0) {
+      return res.json({ exists: false });
+    }
+
+    res.json({ exists: true, ...keyResult.rows[0] });
+  } catch (err) {
+    console.error('Get group key error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.put('/:id/group-key', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { keys } = req.body;
+
+    if (!keys || !Array.isArray(keys) || keys.length === 0) {
+      return res.status(400).json({ error: 'keys array is required' });
+    }
+
+    for (const key of keys) {
+      if (!key.userId || !key.encryptedKey || !key.nonce) {
+        return res.status(400).json({ error: 'Each key must have userId, encryptedKey, and nonce' });
+      }
+    }
+
+    const convResult = await pool.query(
+      'SELECT is_group FROM conversations WHERE id = $1',
+      [id]
+    );
+    if (convResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Conversation not found' });
+    }
+    if (!convResult.rows[0].is_group) {
+      return res.status(400).json({ error: 'Group keys are only for group conversations' });
+    }
+
+    const memberResult = await pool.query(
+      'SELECT 1 FROM conversation_members WHERE conversation_id = $1 AND user_id = $2',
+      [id, req.user.id]
+    );
+    if (memberResult.rows.length === 0) {
+      return res.status(403).json({ error: 'Not a member of this conversation' });
+    }
+
+    const existingKey = await pool.query(
+      'SELECT 1 FROM group_keys WHERE conversation_id = $1 LIMIT 1',
+      [id]
+    );
+    if (existingKey.rows.length > 0) {
+      return res.status(409).json({ error: 'Group key already distributed' });
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      for (const key of keys) {
+        const isMember = await client.query(
+          'SELECT 1 FROM conversation_members WHERE conversation_id = $1 AND user_id = $2',
+          [id, key.userId]
+        );
+        if (isMember.rows.length === 0) {
+          console.warn(`Group key distribution: skipping non-member ${key.userId} for conversation ${id}`);
+          continue;
+        }
+
+        await client.query(
+          `INSERT INTO group_keys (conversation_id, user_id, encrypted_key, nonce, sender_id)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [id, key.userId, key.encryptedKey, key.nonce, req.user.id]
+        );
+      }
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Distribute group key error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 module.exports = router;
