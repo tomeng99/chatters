@@ -21,10 +21,16 @@ if (!process.env.JWT_SECRET) {
 const app = express();
 const server = http.createServer(app);
 
-const parsedAllowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()).filter(Boolean)
+const rawAllowedOrigins = process.env.ALLOWED_ORIGINS;
+const parsedAllowedOrigins = rawAllowedOrigins
+  ? rawAllowedOrigins.split(',').map(o => o.trim()).filter(Boolean)
   : [];
-const hasExplicitOrigins = parsedAllowedOrigins.length > 0;
+const hasExplicitOrigins = rawAllowedOrigins !== undefined;
+if (hasExplicitOrigins && parsedAllowedOrigins.length === 0) {
+  console.warn(
+    'ALLOWED_ORIGINS is set but empty after parsing; no cross-origin browser requests will be allowed.',
+  );
+}
 const allowedOrigins = hasExplicitOrigins
   ? parsedAllowedOrigins
   : ['http://localhost:8081', 'http://localhost:19006', 'http://localhost:3000'];
