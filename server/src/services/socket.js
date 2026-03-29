@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
-const db = require('../config/database');
+const { pool } = require('../config/database');
 
 function getUnixTimestamp() {
   return Math.floor(Date.now() / 1000);
@@ -21,28 +21,36 @@ function setupSocket(io) {
     }
   });
 
-  io.on('connection', (socket) => {
+  io.on('connection', async (socket) => {
     console.log(`User connected: ${socket.user.username} (${socket.id})`);
 
-    const userConversations = db.prepare(`
-      SELECT conversation_id FROM conversation_members WHERE user_id = ?
-    `).all(socket.user.id);
+    try {
+      const result = await pool.query(
+        'SELECT conversation_id FROM conversation_members WHERE user_id = $1',
+        [socket.user.id]
+      );
+      result.rows.forEach(({ conversation_id }) => {
+        socket.join(`conversation:${conversation_id}`);
+      });
+    } catch (err) {
+      console.error('Error joining conversation rooms on connect:', err);
+    }
 
-    userConversations.forEach(({ conversation_id }) => {
-      socket.join(`conversation:${conversation_id}`);
-    });
-
-    socket.on('join_conversation', (conversationId) => {
-      const member = db.prepare(
-        'SELECT 1 FROM conversation_members WHERE conversation_id = ? AND user_id = ?'
-      ).get(conversationId, socket.user.id);
-
-      if (member) {
-        socket.join(`conversation:${conversationId}`);
+    socket.on('join_conversation', async (conversationId) => {
+      try {
+        const result = await pool.query(
+          'SELECT 1 FROM conversation_members WHERE conversation_id = $1 AND user_id = $2',
+          [conversationId, socket.user.id]
+        );
+        if (result.rows.length > 0) {
+          socket.join(`conversation:${conversationId}`);
+        }
+      } catch (err) {
+        console.error('Error joining conversation:', err);
       }
     });
 
-    socket.on('send_message', (data, callback) => {
+    socket.on('send_message', async (data, callback) => {
       try {
         const { conversationId, content, iv, isEncrypted } = data;
 
@@ -51,11 +59,12 @@ function setupSocket(io) {
           return;
         }
 
-        const member = db.prepare(
-          'SELECT 1 FROM conversation_members WHERE conversation_id = ? AND user_id = ?'
-        ).get(conversationId, socket.user.id);
+        const memberResult = await pool.query(
+          'SELECT 1 FROM conversation_members WHERE conversation_id = $1 AND user_id = $2',
+          [conversationId, socket.user.id]
+        );
 
-        if (!member) {
+        if (memberResult.rows.length === 0) {
           if (callback) callback({ error: 'Not a member of this conversation' });
           return;
         }
@@ -63,9 +72,10 @@ function setupSocket(io) {
         const messageId = uuidv4();
         const now = getUnixTimestamp();
 
-        db.prepare(
-          'INSERT INTO messages (id, conversation_id, sender_id, content, iv, is_encrypted, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
-        ).run(messageId, conversationId, socket.user.id, content, iv || null, isEncrypted ? 1 : 0, now);
+        await pool.query(
+          'INSERT INTO messages (id, conversation_id, sender_id, content, iv, is_encrypted, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+          [messageId, conversationId, socket.user.id, content, iv || null, Boolean(isEncrypted), now]
+        );
 
         const message = {
           id: messageId,

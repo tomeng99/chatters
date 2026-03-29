@@ -8,7 +8,7 @@ A secure, end-to-end encrypted messenger application built with React Native (+ 
 - 💬 **1:1 and group chats**
 - 🌐 **Works on mobile AND web** (React Native + React Native Web)
 - ⚡ **Real-time messaging** via Socket.io WebSockets
-- 🗄️ **Self-hostable** Node.js backend with SQLite
+- 🗄️ **Self-hostable** Node.js backend with PostgreSQL
 
 ---
 
@@ -18,7 +18,7 @@ A secure, end-to-end encrypted messenger application built with React Native (+ 
 chatters/
 ├── server/              # Node.js + Express + Socket.io backend
 │   ├── src/
-│   │   ├── config/      # Database (SQLite via better-sqlite3)
+│   │   ├── config/      # Database (PostgreSQL via pg)
 │   │   ├── middleware/  # JWT auth middleware
 │   │   ├── routes/      # REST API routes
 │   │   ├── services/    # Socket.io service
@@ -48,13 +48,14 @@ chatters/
 
 - Node.js 20+
 - npm
+- PostgreSQL 14+
 
 ### 1. Backend Setup
 
 ```bash
 cd server
 cp .env.example .env
-# Edit .env and set a strong JWT_SECRET
+# Edit .env: set a strong JWT_SECRET and your PostgreSQL credentials
 npm install
 npm start
 ```
@@ -73,19 +74,23 @@ npx expo start         # Open in Expo Go (mobile)
 ### 3. Docker (recommended for production)
 
 ```bash
-# In project root
-JWT_SECRET=your-strong-secret docker-compose up -d
+# In project root — starts both PostgreSQL and the server
+JWT_SECRET=your-strong-secret POSTGRES_PASSWORD=your-db-password docker-compose up -d
 ```
 
 ---
 
 ## Environment Variables (server/.env)
 
-| Variable        | Default                             | Description                  |
-|-----------------|-------------------------------------|------------------------------|
-| `PORT`          | `3001`                              | HTTP + WebSocket port        |
-| `JWT_SECRET`    | `change-this-secret-in-production`  | JWT signing secret           |
-| `DATABASE_PATH` | `./chatters.db`                     | Path to SQLite database file |
+| Variable              | Default                             | Description                    |
+|-----------------------|-------------------------------------|--------------------------------|
+| `PORT`                | `3001`                              | HTTP + WebSocket port          |
+| `JWT_SECRET`          | `change-this-secret-in-production`  | JWT signing secret             |
+| `POSTGRES_HOST`       | `localhost`                         | PostgreSQL host                |
+| `POSTGRES_PORT`       | `5432`                              | PostgreSQL port                |
+| `POSTGRES_USER`       | `chatters`                          | PostgreSQL user                |
+| `POSTGRES_PASSWORD`   | `chatters`                          | PostgreSQL password            |
+| `POSTGRES_DB`         | `chatters`                          | PostgreSQL database name       |
 
 ---
 

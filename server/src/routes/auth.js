@@ -2,7 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
-const db = require('../config/database');
+const { pool } = require('../config/database');
 
 const router = express.Router();
 
@@ -26,8 +26,8 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'Username can only contain letters, numbers, and underscores' });
     }
 
-    const existingUser = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
-    if (existingUser) {
+    const existingResult = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
+    if (existingResult.rows.length > 0) {
       return res.status(409).json({ error: 'Username already taken' });
     }
 
@@ -35,9 +35,10 @@ router.post('/register', async (req, res) => {
     const passwordHash = await bcrypt.hash(password, saltRounds);
     const userId = uuidv4();
 
-    db.prepare(
-      'INSERT INTO users (id, username, password_hash, public_key) VALUES (?, ?, ?, ?)'
-    ).run(userId, username, passwordHash, publicKey || null);
+    await pool.query(
+      'INSERT INTO users (id, username, password_hash, public_key) VALUES ($1, $2, $3, $4)',
+      [userId, username, passwordHash, publicKey || null]
+    );
 
     const token = jwt.sign(
       { id: userId, username },
@@ -63,7 +64,8 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Username and password are required' });
     }
 
-    const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
+    const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+    const user = result.rows[0];
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
@@ -89,13 +91,13 @@ router.post('/login', async (req, res) => {
   }
 });
 
-router.put('/public-key', require('../middleware/auth').authenticateToken, (req, res) => {
+router.put('/public-key', require('../middleware/auth').authenticateToken, async (req, res) => {
   try {
     const { publicKey } = req.body;
     if (!publicKey) {
       return res.status(400).json({ error: 'Public key is required' });
     }
-    db.prepare('UPDATE users SET public_key = ? WHERE id = ?').run(publicKey, req.user.id);
+    await pool.query('UPDATE users SET public_key = $1 WHERE id = $2', [publicKey, req.user.id]);
     res.json({ success: true });
   } catch (err) {
     console.error('Update public key error:', err);

@@ -5,7 +5,7 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 
-const db = require('./config/database');
+const { initializeDatabase } = require('./config/database');
 const authRoutes = require('./routes/auth');
 const conversationRoutes = require('./routes/conversations');
 const userRoutes = require('./routes/users');
@@ -71,9 +71,16 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-const PORT = parseInt(process.env.PORT) || 3001;
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Chatters server running on port ${PORT}`);
-});
+initializeDatabase()
+  .then(() => {
+    const PORT = parseInt(process.env.PORT) || 3001;
+    server.listen(PORT, '0.0.0.0', () => {
+      console.log(`Chatters server running on port ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error('Failed to initialize database:', err);
+    process.exit(1);
+  });
 
 module.exports = { app, server };
