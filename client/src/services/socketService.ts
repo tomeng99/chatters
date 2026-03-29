@@ -7,6 +7,8 @@ interface Message {
   content: string;
   iv?: string | null;
   isEncrypted: boolean;
+  messageType?: 'text' | 'image' | 'video' | 'file';
+  fileName?: string | null;
   createdAt: number;
   sender: { id: string; username: string };
 }
@@ -73,7 +75,9 @@ class SocketService {
     conversationId: string,
     content: string,
     iv?: string | null,
-    isEncrypted = false
+    isEncrypted = false,
+    messageType: 'text' | 'image' | 'video' | 'file' = 'text',
+    fileName?: string | null
   ): Promise<{ success: boolean; message?: Message; error?: string }> {
     return new Promise((resolve) => {
       if (!this.socket?.connected) {
@@ -82,7 +86,7 @@ class SocketService {
       }
       this.socket.emit(
         'send_message',
-        { conversationId, content, iv, isEncrypted },
+        { conversationId, content, iv, isEncrypted, messageType, fileName },
         (response: { success?: boolean; message?: Message; error?: string }) => {
           resolve({ ...response, success: response.success ?? false });
         }

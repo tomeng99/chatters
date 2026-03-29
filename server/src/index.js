@@ -4,11 +4,13 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
+const path = require('path');
 
 const { initializeDatabase } = require('./config/database');
 const authRoutes = require('./routes/auth');
 const conversationRoutes = require('./routes/conversations');
 const userRoutes = require('./routes/users');
+const uploadRoutes = require('./routes/uploads');
 const { setupSocket } = require('./services/socket');
 
 if (!process.env.JWT_SECRET) {
@@ -55,6 +57,9 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '1mb' }));
 
+// Serve uploaded files statically
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
@@ -84,6 +89,7 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/conversations', apiLimiter, conversationRoutes);
 app.use('/api/users', apiLimiter, userRoutes);
+app.use('/api/upload', apiLimiter, uploadRoutes);
 
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
