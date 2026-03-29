@@ -493,7 +493,7 @@ export default function ChatScreen({ navigation, route }: Props) {
     const mimeType = asset.mimeType || (asset.type === 'video' ? 'video/mp4' : 'image/jpeg');
     const messageType: MessageType = asset.type === 'video' ? 'video' : 'image';
     // On web, expo-image-picker provides a File object on the asset
-    const webFile = (asset as unknown as { file?: File }).file || null;
+    const webFile = 'file' in asset && asset.file instanceof File ? asset.file : null;
 
     const uploaded = await uploadFile(uri, fileName, mimeType, webFile);
     if (uploaded) {
@@ -514,7 +514,7 @@ export default function ChatScreen({ navigation, route }: Props) {
     const fileName = asset.name || 'document.pdf';
     const mimeType = asset.mimeType || 'application/pdf';
     // On web, expo-document-picker provides a File object on the asset
-    const webFile = (asset as unknown as { file?: File }).file || null;
+    const webFile = 'file' in asset && asset.file instanceof File ? asset.file : null;
 
     const uploaded = await uploadFile(uri, fileName, mimeType, webFile);
     if (uploaded) {
