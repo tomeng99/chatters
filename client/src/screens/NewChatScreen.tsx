@@ -15,10 +15,9 @@ import { useAuthStore } from '../store/authStore';
 import Avatar from '../components/Avatar';
 import Button from '../components/Button';
 import { colors, typography, spacing, borderRadius } from '../theme';
+import { API_BASE } from '../config';
 
 type Props = { navigation: StackNavigationProp<AppStackParamList, 'NewChat'> };
-
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001';
 
 interface SearchUser {
   id: string;

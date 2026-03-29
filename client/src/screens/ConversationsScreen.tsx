@@ -15,10 +15,9 @@ import { useAuthStore } from '../store/authStore';
 import { socketService } from '../services/socketService';
 import ConversationItem from '../components/ConversationItem';
 import { colors, typography, spacing, borderRadius, shadows } from '../theme';
+import { API_BASE } from '../config';
 
 type Props = { navigation: StackNavigationProp<AppStackParamList, 'Conversations'> };
-
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001';
 
 interface Conversation {
   id: string;

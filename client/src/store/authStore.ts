@@ -6,8 +6,7 @@ import {
   keyPairFromBase64,
   KeyPair,
 } from '../utils/encryption';
-
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001';
+import { API_BASE } from '../config';
 
 const STORAGE_KEYS = {
   TOKEN: 'chatters_token',

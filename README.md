@@ -74,6 +74,12 @@ npx expo start --web   # Open in web browser
 npx expo start         # Open in Expo Go (mobile)
 ```
 
+> **Mobile devices on LAN**: When you run `npx expo start` and open the app
+> in Expo Go on a phone, the client automatically detects the development
+> server's IP address and connects to the backend at `http://<server-ip>:3001`.
+> You can override this by setting `EXPO_PUBLIC_API_URL` before starting the
+> client (e.g. `EXPO_PUBLIC_API_URL=http://192.168.1.50:3001 npx expo start`).
+
 ### 3. Stop Podman Services
 
 ```bash
@@ -98,6 +104,12 @@ If your system uses the compose plugin command, replace `podman-compose` with `p
 | `POSTGRES_POOL_MAX`   | `20`                                | Maximum pool connections       |
 | `POSTGRES_SSL`        | *(unset)*                           | Set `true` to enable SSL       |
 | `ALLOWED_ORIGINS`     | `http://localhost:8081,...`          | Comma-separated allowed origins|
+
+### Client Environment Variables
+
+| Variable              | Default                             | Description                    |
+|-----------------------|-------------------------------------|--------------------------------|
+| `EXPO_PUBLIC_API_URL` | auto-detected from Expo dev host    | Backend URL for API + WebSocket|
 
 ---
 
