@@ -7,6 +7,7 @@ import RegisterScreen from '../screens/RegisterScreen';
 import ConversationsScreen from '../screens/ConversationsScreen';
 import ChatScreen from '../screens/ChatScreen';
 import NewChatScreen from '../screens/NewChatScreen';
+import SettingsScreen from '../screens/SettingsScreen';
 import { colors, typography } from '../theme';
 import { ActivityIndicator, View } from 'react-native';
 
@@ -24,6 +25,7 @@ export type AppStackParamList = {
     members: Array<{ id: string; username: string; publicKey?: string | null }>;
   };
   NewChat: undefined;
+  Settings: undefined;
 };
 
 const AuthStack = createStackNavigator<AuthStackParamList>();
@@ -75,6 +77,11 @@ function AppNavigatorStack() {
         name="NewChat"
         component={NewChatScreen}
         options={{ title: 'New Conversation' }}
+      />
+      <AppStack.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{ title: 'Settings' }}
       />
     </AppStack.Navigator>
   );

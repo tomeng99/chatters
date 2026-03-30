@@ -7,12 +7,14 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Platform,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { AppStackParamList } from '../navigation/AppNavigator';
 import { useAuthStore } from '../store/authStore';
 import { socketService } from '../services/socketService';
+import { requestNotificationPermission, showNotification } from '../services/notificationService';
 import ConversationItem from '../components/ConversationItem';
 import {
   decryptMessage,
@@ -51,6 +53,11 @@ export default function ConversationsScreen({ navigation }: Props) {
 
   useEffect(() => {
     navigation.setOptions({
+      headerLeft: () => (
+        <TouchableOpacity onPress={() => navigation.navigate('Settings')} style={{ marginLeft: spacing.md }}>
+          <Text style={{ fontSize: 22 }}>⚙️</Text>
+        </TouchableOpacity>
+      ),
       headerRight: () => (
         <TouchableOpacity onPress={logout} style={{ marginRight: spacing.md }}>
           <Text style={{ color: colors.primary, fontSize: typography.fontSizeMD }}>Sign Out</Text>
@@ -62,11 +69,24 @@ export default function ConversationsScreen({ navigation }: Props) {
   useEffect(() => {
     if (token) {
       socketService.connect(token);
+      // Only auto-request notification permission on native platforms.
+      // On web, browsers block permission requests unless triggered by a user gesture,
+      // so we defer to the Settings screen button instead.
+      if (Platform.OS !== 'web') {
+        requestNotificationPermission();
+      }
     }
     return () => {
       socketService.disconnect();
     };
   }, [token]);
+
+  useEffect(() => {
+    const unsub = socketService.onNotification((data) => {
+      showNotification(data);
+    });
+    return unsub;
+  }, []);
 
   useEffect(() => {
     const unsub = socketService.onAnyMessage(() => {

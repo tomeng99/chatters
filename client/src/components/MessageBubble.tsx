@@ -8,6 +8,7 @@ interface MessageBubbleProps {
   content: string;
   isSent: boolean;
   isEncrypted: boolean;
+  isCritical?: boolean;
   createdAt: number;
   senderUsername?: string;
   showSender?: boolean;
@@ -78,6 +79,7 @@ export default function MessageBubble({
   content,
   isSent,
   isEncrypted,
+  isCritical = false,
   createdAt,
   senderUsername,
   showSender = false,
@@ -176,10 +178,17 @@ export default function MessageBubble({
         style={[
           styles.bubble,
           isSent ? styles.bubbleSent : styles.bubbleReceived,
+          isCritical && styles.bubbleCritical,
           emojiOnly && styles.emojiBubble,
           messageType === 'image' && !imageError && styles.mediaBubble,
         ]}
       >
+        {isCritical && (
+          <View style={styles.criticalBadge}>
+            <Text style={styles.criticalIcon}>❗</Text>
+            <Text style={[styles.criticalLabel, isSent ? styles.criticalLabelSent : styles.criticalLabelReceived]}>Critical</Text>
+          </View>
+        )}
         {showSender && !isSent && senderUsername ? (
           <Text style={styles.senderName}>{senderUsername}</Text>
         ) : null}
@@ -222,6 +231,29 @@ const styles = StyleSheet.create({
   bubbleReceived: {
     backgroundColor: colors.messageBubbleReceived,
     borderBottomLeftRadius: borderRadius.sm,
+  },
+  bubbleCritical: {
+    borderLeftWidth: 3,
+    borderLeftColor: colors.error,
+  },
+  criticalBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  criticalIcon: {
+    fontSize: 10,
+    marginRight: 3,
+  },
+  criticalLabel: {
+    fontSize: typography.fontSizeXS,
+    fontWeight: typography.fontWeightSemiBold,
+  },
+  criticalLabelSent: {
+    color: 'rgba(255,255,255,0.85)',
+  },
+  criticalLabelReceived: {
+    color: colors.error,
   },
   emojiBubble: {
     backgroundColor: 'transparent',

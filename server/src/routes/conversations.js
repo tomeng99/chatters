@@ -189,7 +189,7 @@ router.get('/:id/messages', async (req, res) => {
     const params = [id];
     let paramCount = 1;
     let query = `
-      SELECT m.id, m.conversation_id, m.content, m.iv, m.is_encrypted, m.message_type, m.file_name, m.created_at,
+      SELECT m.id, m.conversation_id, m.content, m.iv, m.is_encrypted, m.is_critical, m.message_type, m.file_name, m.created_at,
              u.id AS sender_id, u.username AS sender_username
       FROM messages m
       JOIN users u ON u.id = m.sender_id
@@ -208,13 +208,31 @@ router.get('/:id/messages', async (req, res) => {
 
     const messagesResult = await pool.query(query, params);
 
+    const messages = messagesResult.rows.reverse();
+
+    // Fetch tags for all messages in one query
+    const messageIds = messages.map((m) => m.id);
+    let tagsByMessage = {};
+    if (messageIds.length > 0) {
+      const tagsResult = await pool.query(
+        'SELECT message_id, tagged_user_id FROM message_tags WHERE message_id = ANY($1)',
+        [messageIds]
+      );
+      for (const tag of tagsResult.rows) {
+        if (!tagsByMessage[tag.message_id]) tagsByMessage[tag.message_id] = [];
+        tagsByMessage[tag.message_id].push(tag.tagged_user_id);
+      }
+    }
+
     res.json(
-      messagesResult.rows.reverse().map((msg) => ({
+      messages.map((msg) => ({
         id: msg.id,
         conversationId: msg.conversation_id,
         content: msg.content,
         iv: msg.iv,
         isEncrypted: Boolean(msg.is_encrypted),
+        isCritical: Boolean(msg.is_critical),
+        taggedUserIds: tagsByMessage[msg.id] || [],
         messageType: msg.message_type || 'text',
         fileName: msg.file_name || null,
         createdAt: msg.created_at,

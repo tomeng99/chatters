@@ -52,7 +52,7 @@ function setupSocket(io) {
 
     socket.on('send_message', async (data, callback) => {
       try {
-        const { conversationId, content, iv, isEncrypted, messageType, fileName } = data;
+        const { conversationId, content, iv, isEncrypted, isCritical, taggedUserIds, messageType, fileName } = data;
 
         if (!conversationId || !content) {
           if (callback) callback({ error: 'conversationId and content are required' });
@@ -80,11 +80,33 @@ function setupSocket(io) {
 
         const messageId = uuidv4();
         const now = getUnixTimestamp();
+        const critical = Boolean(isCritical);
 
         await pool.query(
-          'INSERT INTO messages (id, conversation_id, sender_id, content, iv, is_encrypted, message_type, file_name, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
-          [messageId, conversationId, socket.user.id, content, iv || null, Boolean(isEncrypted), msgType, safeFileName, now]
+          'INSERT INTO messages (id, conversation_id, sender_id, content, iv, is_encrypted, is_critical, message_type, file_name, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
+          [messageId, conversationId, socket.user.id, content, iv || null, Boolean(isEncrypted), critical, msgType, safeFileName, now]
         );
+
+        // Store tags if provided
+        const validTaggedUserIds = [];
+        if (taggedUserIds && Array.isArray(taggedUserIds) && taggedUserIds.length > 0) {
+          // Fetch all conversation members once to validate tags in memory
+          const allMembersResult = await pool.query(
+            'SELECT user_id FROM conversation_members WHERE conversation_id = $1',
+            [conversationId]
+          );
+          const memberIdSet = new Set(allMembersResult.rows.map(r => r.user_id));
+
+          for (const taggedUserId of taggedUserIds) {
+            if (memberIdSet.has(taggedUserId)) {
+              await pool.query(
+                'INSERT INTO message_tags (message_id, tagged_user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+                [messageId, taggedUserId]
+              );
+              validTaggedUserIds.push(taggedUserId);
+            }
+          }
+        }
 
         const message = {
           id: messageId,
@@ -92,6 +114,8 @@ function setupSocket(io) {
           content,
           iv: iv || null,
           isEncrypted: Boolean(isEncrypted),
+          isCritical: critical,
+          taggedUserIds: validTaggedUserIds,
           messageType: msgType,
           fileName: safeFileName,
           createdAt: now,
@@ -99,6 +123,68 @@ function setupSocket(io) {
         };
 
         io.to(`conversation:${conversationId}`).emit('new_message', message);
+
+        // Send notifications to conversation members based on their preferences
+        try {
+          const membersResult = await pool.query(
+            `SELECT u.id, u.notification_preference
+             FROM conversation_members cm
+             JOIN users u ON u.id = cm.user_id
+             WHERE cm.conversation_id = $1 AND u.id != $2`,
+            [conversationId, socket.user.id]
+          );
+
+          // Get conversation name for notification
+          const convResult = await pool.query(
+            'SELECT name, is_group FROM conversations WHERE id = $1',
+            [conversationId]
+          );
+          const convName = convResult.rows[0]?.name || null;
+          const isGroupConv = convResult.rows[0]?.is_group || false;
+
+          // Build a map of userId to sockets once for all members
+          const allSockets = await io.in(`conversation:${conversationId}`).fetchSockets();
+          const socketsByUserId = new Map();
+          for (const s of allSockets) {
+            if (s.user && s.user.id) {
+              if (!socketsByUserId.has(s.user.id)) socketsByUserId.set(s.user.id, []);
+              socketsByUserId.get(s.user.id).push(s);
+            }
+          }
+
+          for (const member of membersResult.rows) {
+            const pref = member.notification_preference || 'all';
+            let shouldNotify = false;
+
+            if (pref === 'all') {
+              shouldNotify = true;
+            } else if (pref === 'tags_and_critical') {
+              shouldNotify = critical || validTaggedUserIds.includes(member.id);
+            } else if (pref === 'critical_only') {
+              shouldNotify = critical;
+            }
+            // pref === 'none' → shouldNotify stays false
+
+            if (shouldNotify) {
+              const memberSockets = socketsByUserId.get(member.id) || [];
+              for (const memberSocket of memberSockets) {
+                memberSocket.emit('notification', {
+                  type: 'new_message',
+                  conversationId,
+                  conversationName: convName,
+                  isGroup: isGroupConv,
+                  messageId,
+                  senderUsername: socket.user.username,
+                  isCritical: critical,
+                  isTagged: validTaggedUserIds.includes(member.id),
+                });
+              }
+            }
+          }
+        } catch (notifErr) {
+          console.error('Notification delivery error:', notifErr);
+          // Non-fatal: message was already sent successfully
+        }
 
         if (callback) callback({ success: true, message });
       } catch (err) {
