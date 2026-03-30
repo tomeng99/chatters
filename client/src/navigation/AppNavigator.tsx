@@ -62,7 +62,7 @@ function AppNavigatorStack() {
           fontWeight: typography.fontWeightSemiBold,
           color: colors.text,
         },
-        headerBackTitleVisible: false,
+        headerBackTitleStyle: { fontSize: 0 },
         cardStyle: { backgroundColor: colors.background },
       }}
     >
