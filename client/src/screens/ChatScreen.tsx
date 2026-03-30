@@ -655,9 +655,9 @@ export default function ChatScreen({ navigation, route }: Props) {
             disabled={!inputText.trim() || sending}
           >
             {sending ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
+              <ActivityIndicator size="small" color={colors.onPrimary} />
             ) : (
-              <MaterialCommunityIcons name="send" size={18} color="#FFFFFF" />
+              <MaterialCommunityIcons name="send" size={18} color={colors.onPrimary} />
             )}
           </Pressable>
         </View>

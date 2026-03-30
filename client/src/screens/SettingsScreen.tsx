@@ -130,7 +130,7 @@ export default function SettingsScreen({ navigation }: Props) {
             onPress={() => updatePreference(option.value)}
             disabled={saving}
           >
-            <RadioButton.Android
+            <RadioButton
               value={option.value}
               status={preference === option.value ? 'checked' : 'unchecked'}
               onPress={() => updatePreference(option.value)}
@@ -174,7 +174,7 @@ export default function SettingsScreen({ navigation }: Props) {
             ) : browserPermission === 'ios_web' ? (
               <View style={styles.browserNotifInfoBox}>
                 <MaterialCommunityIcons name="cellphone" size={18} color={colors.textSecondary} />
-                <View style={{ flex: 1 }}>
+                <View style={styles.iosNotifTextContainer}>
                   <Text style={styles.browserNotifDenied}>
                     Safari on iOS does not support notifications for regular websites.
                   </Text>
@@ -330,6 +330,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     paddingVertical: spacing.sm,
     gap: spacing.sm,
+  },
+  iosNotifTextContainer: {
+    flex: 1,
   },
   browserNotifEnabled: {
     fontSize: typography.fontSizeSM,

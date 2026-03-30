@@ -4,6 +4,7 @@ export const colors = {
   primary: '#4F46E5',
   primaryDark: '#3730A3',
   primaryLight: '#818CF8',
+  onPrimary: '#FFFFFF',
   background: '#FAFAFA',
   surface: '#FFFFFF',
   surfaceSecondary: '#F3F4F6',
@@ -19,6 +20,7 @@ export const colors = {
   messageBubbleSentText: '#FFFFFF',
   messageBubbleReceivedText: '#111827',
   online: '#10B981',
+  linkSent: '#C7D2FE',
 };
 
 export const typography = {

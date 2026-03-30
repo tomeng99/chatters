@@ -259,7 +259,7 @@ export default function ConversationsScreen({ navigation }: Props) {
         icon="pencil"
         style={styles.fab}
         onPress={() => navigation.navigate('NewChat')}
-        color="#FFFFFF"
+        color={colors.onPrimary}
       />
     </View>
   );

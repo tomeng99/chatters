@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
   linkSent: {
-    color: '#C7D2FE',
+    color: colors.linkSent,
   },
   linkReceived: {
     color: colors.primary,

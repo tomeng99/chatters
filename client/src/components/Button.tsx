@@ -49,7 +49,7 @@ export default function Button({
     >
       {loading ? (
         <ActivityIndicator
-          color={variant === 'primary' ? colors.surface : colors.primary}
+          color={variant === 'primary' ? colors.onPrimary : colors.primary}
           size="small"
         />
       ) : (

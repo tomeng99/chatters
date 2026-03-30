@@ -24,9 +24,11 @@ function stringToColor(str: string): string {
   return palette[Math.abs(hash) % palette.length];
 }
 
+const INITIALS_SIZE_RATIO = 0.36;
+
 export default function Avatar({ username, size = 40, style }: AvatarProps) {
   const bg = stringToColor(username);
-  const fontSize = size * 0.36;
+  const fontSize = size * INITIALS_SIZE_RATIO;
 
   return (
     <View
