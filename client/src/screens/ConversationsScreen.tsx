@@ -13,7 +13,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { AppStackParamList } from '../navigation/AppNavigator';
 import { useAuthStore } from '../store/authStore';
 import { socketService } from '../services/socketService';
-import { requestNotificationPermission, showBrowserNotification } from '../services/notificationService';
+import { requestNotificationPermission, showNotification } from '../services/notificationService';
 import ConversationItem from '../components/ConversationItem';
 import { colors, typography, spacing, borderRadius, shadows } from '../theme';
 
@@ -68,7 +68,7 @@ export default function ConversationsScreen({ navigation }: Props) {
 
   useEffect(() => {
     const unsub = socketService.onNotification((data) => {
-      showBrowserNotification(data);
+      showNotification(data);
     });
     return unsub;
   }, []);

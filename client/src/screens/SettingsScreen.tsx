@@ -54,12 +54,13 @@ export default function SettingsScreen({ navigation }: Props) {
   }, [fetchSettings]);
 
   useEffect(() => {
-    setBrowserPermission(getNotificationPermission());
+    getNotificationPermission().then(setBrowserPermission);
   }, []);
 
   const handleEnableBrowserNotifications = async () => {
     const granted = await requestNotificationPermission();
-    setBrowserPermission(granted ? 'granted' : getNotificationPermission());
+    const perm = await getNotificationPermission();
+    setBrowserPermission(granted ? 'granted' : perm);
   };
 
   const updatePreference = async (value: NotificationPreference) => {
@@ -143,23 +144,29 @@ export default function SettingsScreen({ navigation }: Props) {
             </View>
           </TouchableOpacity>
         ))}
-        {Platform.OS === 'web' && (
+        {(Platform.OS === 'web' || Platform.OS === 'ios' || Platform.OS === 'android') && (
           <View style={styles.browserNotifSection}>
-            <Text style={styles.browserNotifTitle}>Browser Notifications</Text>
+            <Text style={styles.browserNotifTitle}>
+              {Platform.OS === 'web' ? 'Browser Notifications' : 'Push Notifications'}
+            </Text>
             {browserPermission === 'granted' ? (
               <View style={styles.browserNotifStatus}>
-                <Text style={styles.browserNotifEnabled}>✅ Browser notifications enabled</Text>
+                <Text style={styles.browserNotifEnabled}>
+                  {Platform.OS === 'web' ? '✅ Browser notifications enabled' : '✅ Notifications enabled'}
+                </Text>
               </View>
             ) : browserPermission === 'denied' ? (
               <View style={styles.browserNotifStatus}>
                 <Text style={styles.browserNotifDenied}>
-                  ❌ Browser notifications blocked. Please enable them in your browser settings.
+                  {Platform.OS === 'web'
+                    ? '❌ Browser notifications blocked. Please enable them in your browser settings.'
+                    : '❌ Notifications blocked. Please enable them in your device settings.'}
                 </Text>
               </View>
             ) : browserPermission === 'unsupported' ? (
               <View style={styles.browserNotifStatus}>
                 <Text style={styles.browserNotifDenied}>
-                  Browser notifications are not supported in this browser.
+                  Notifications are not supported on this platform.
                 </Text>
               </View>
             ) : (
@@ -168,7 +175,9 @@ export default function SettingsScreen({ navigation }: Props) {
                 onPress={handleEnableBrowserNotifications}
                 activeOpacity={0.7}
               >
-                <Text style={styles.enableButtonText}>🔔 Enable Browser Notifications</Text>
+                <Text style={styles.enableButtonText}>
+                  {Platform.OS === 'web' ? '🔔 Enable Browser Notifications' : '🔔 Enable Notifications'}
+                </Text>
               </TouchableOpacity>
             )}
           </View>
