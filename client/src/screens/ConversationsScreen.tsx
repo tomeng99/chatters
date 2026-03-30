@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Platform,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useFocusEffect } from '@react-navigation/native';
@@ -68,7 +69,12 @@ export default function ConversationsScreen({ navigation }: Props) {
   useEffect(() => {
     if (token) {
       socketService.connect(token);
-      requestNotificationPermission();
+      // Only auto-request notification permission on native platforms.
+      // On web, browsers block permission requests unless triggered by a user gesture,
+      // so we defer to the Settings screen button instead.
+      if (Platform.OS !== 'web') {
+        requestNotificationPermission();
+      }
     }
     return () => {
       socketService.disconnect();

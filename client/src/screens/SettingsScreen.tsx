@@ -163,10 +163,19 @@ export default function SettingsScreen({ navigation }: Props) {
                     : '❌ Notifications blocked. Please enable them in your device settings.'}
                 </Text>
               </View>
+            ) : browserPermission === 'ios_web' ? (
+              <View style={styles.browserNotifStatus}>
+                <Text style={styles.browserNotifDenied}>
+                  📱 Safari on iOS does not support notifications for regular websites.
+                </Text>
+                <Text style={[styles.browserNotifDenied, { marginTop: spacing.xs }]}>
+                  To receive notifications, add this app to your Home Screen: tap the Share button (↑) in Safari, then "Add to Home Screen". Once opened from the Home Screen, notifications will work.
+                </Text>
+              </View>
             ) : browserPermission === 'unsupported' ? (
               <View style={styles.browserNotifStatus}>
                 <Text style={styles.browserNotifDenied}>
-                  Notifications are not supported on this platform.
+                  Notifications are not supported on this browser.
                 </Text>
               </View>
             ) : (

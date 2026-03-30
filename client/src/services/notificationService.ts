@@ -14,12 +14,29 @@ if (Platform.OS !== 'web') {
   });
 }
 
+// Set up Android notification channel (required on Android 8+)
+if (Platform.OS === 'android') {
+  Notifications.setNotificationChannelAsync('default', {
+    name: 'Default',
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: '#FF231F7C',
+  });
+}
+
 function isBrowserNotificationSupported(): boolean {
   return Platform.OS === 'web' && typeof window !== 'undefined' && 'Notification' in window;
 }
 
 function isNativePlatform(): boolean {
   return Platform.OS === 'ios' || Platform.OS === 'android';
+}
+
+// Detect iOS/iPadOS Safari (web browsing, not a native app)
+function isIOSWeb(): boolean {
+  if (Platform.OS !== 'web' || typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  return /iPhone|iPad|iPod/.test(ua) || (ua.includes('Macintosh') && 'ontouchend' in document);
 }
 
 export async function requestNotificationPermission(): Promise<boolean> {
@@ -48,6 +65,11 @@ export async function getNotificationPermission(): Promise<string> {
 
   if (isBrowserNotificationSupported()) {
     return Notification.permission;
+  }
+
+  // Return specific status for iOS Safari so the UI can show tailored guidance
+  if (isIOSWeb()) {
+    return 'ios_web';
   }
 
   return 'unsupported';
