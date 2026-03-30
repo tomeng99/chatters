@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, Linking } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, typography, spacing, borderRadius } from '../theme';
 import EncryptionBadge from './EncryptionBadge';
 import { API_BASE } from '../config';
@@ -120,10 +121,10 @@ export default function MessageBubble({
           style={styles.videoContainer}
         >
           <View style={styles.videoOverlay}>
-            <Text style={styles.videoPlayIcon}>▶</Text>
+            <MaterialCommunityIcons name="play" size={22} color="#FFFFFF" />
           </View>
           <Text style={[styles.fileText, isSent ? styles.contentSent : styles.contentReceived]}>
-            🎬 {fileName || 'Video'}
+            {fileName || 'Video'}
           </Text>
         </TouchableOpacity>
       );
@@ -136,7 +137,11 @@ export default function MessageBubble({
           onPress={() => Linking.openURL(resolveUrl(content))}
           style={styles.fileContainer}
         >
-          <Text style={styles.fileIcon}>📄</Text>
+          <MaterialCommunityIcons
+            name="file-document-outline"
+            size={28}
+            color={isSent ? 'rgba(255,255,255,0.85)' : colors.primary}
+          />
           <Text
             style={[styles.fileText, isSent ? styles.contentSent : styles.contentReceived]}
             numberOfLines={2}
@@ -150,9 +155,16 @@ export default function MessageBubble({
     // Fallback for image errors
     if (messageType === 'image' && imageError) {
       return (
-        <Text style={[styles.content, isSent ? styles.contentSent : styles.contentReceived]}>
-          📷 Image could not be loaded
-        </Text>
+        <View style={styles.imageErrorContainer}>
+          <MaterialCommunityIcons
+            name="image-off-outline"
+            size={20}
+            color={isSent ? 'rgba(255,255,255,0.7)' : colors.textSecondary}
+          />
+          <Text style={[styles.content, isSent ? styles.contentSent : styles.contentReceived, { marginLeft: spacing.xs }]}>
+            Image could not be loaded
+          </Text>
+        </View>
       );
     }
 
@@ -185,7 +197,11 @@ export default function MessageBubble({
       >
         {isCritical && (
           <View style={styles.criticalBadge}>
-            <Text style={styles.criticalIcon}>❗</Text>
+            <MaterialCommunityIcons
+              name="alert-circle"
+              size={12}
+              color={isSent ? 'rgba(255,255,255,0.85)' : colors.error}
+            />
             <Text style={[styles.criticalLabel, isSent ? styles.criticalLabelSent : styles.criticalLabelReceived]}>Critical</Text>
           </View>
         )}
@@ -195,7 +211,7 @@ export default function MessageBubble({
         {renderContent()}
         <View style={styles.meta}>
           {isEncrypted && (
-            <EncryptionBadge color={isSent ? 'rgba(255,255,255,0.7)' : colors.textTertiary} size={10} />
+            <EncryptionBadge color={isSent ? 'rgba(255,255,255,0.6)' : colors.textTertiary} size={10} />
           )}
           <Text style={[styles.time, isSent ? styles.timeSent : styles.timeReceived]}>
             {formatTime(createdAt)}
@@ -219,9 +235,9 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   bubble: {
-    maxWidth: '75%',
+    maxWidth: '78%',
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.sm + 2,
     borderRadius: borderRadius.lg,
   },
   bubbleSent: {
@@ -239,11 +255,8 @@ const styles = StyleSheet.create({
   criticalBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 2,
-  },
-  criticalIcon: {
-    fontSize: 10,
-    marginRight: 3,
+    marginBottom: 3,
+    gap: 3,
   },
   criticalLabel: {
     fontSize: typography.fontSizeXS,
@@ -272,7 +285,7 @@ const styles = StyleSheet.create({
   },
   content: {
     fontSize: typography.fontSizeMD,
-    lineHeight: 20,
+    lineHeight: 21,
   },
   contentSent: {
     color: colors.messageBubbleSentText,
@@ -289,7 +302,7 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
   linkSent: {
-    color: '#d4e8ff',
+    color: '#C7D2FE',
   },
   linkReceived: {
     color: colors.primary,
@@ -298,6 +311,10 @@ const styles = StyleSheet.create({
     width: 220,
     height: 220,
     borderRadius: borderRadius.md,
+  },
+  imageErrorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   videoContainer: {
     flexDirection: 'row',
@@ -308,22 +325,15 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.45)',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  videoPlayIcon: {
-    color: '#fff',
-    fontSize: 18,
   },
   fileContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
     paddingVertical: spacing.xs,
-  },
-  fileIcon: {
-    fontSize: 28,
   },
   fileText: {
     fontSize: typography.fontSizeMD,
@@ -340,7 +350,7 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizeXS,
   },
   timeSent: {
-    color: 'rgba(255,255,255,0.7)',
+    color: 'rgba(255,255,255,0.6)',
   },
   timeReceived: {
     color: colors.textTertiary,

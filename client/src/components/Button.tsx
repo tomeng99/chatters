@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  TouchableOpacity,
+  Pressable,
   Text,
   ActivityIndicator,
   StyleSheet,
@@ -33,22 +33,23 @@ export default function Button({
   const isDisabled = disabled || loading;
 
   return (
-    <TouchableOpacity
+    <Pressable
       onPress={onPress}
       disabled={isDisabled}
-      style={[
+      style={({ pressed }) => [
         styles.base,
         variant === 'primary' && styles.primary,
         variant === 'secondary' && styles.secondary,
         variant === 'text' && styles.textVariant,
         isDisabled && styles.disabled,
+        pressed && !isDisabled && variant === 'primary' && styles.primaryPressed,
+        pressed && !isDisabled && variant === 'secondary' && styles.secondaryPressed,
         style,
       ]}
-      activeOpacity={0.8}
     >
       {loading ? (
         <ActivityIndicator
-          color={variant === 'primary' ? colors.background : colors.primary}
+          color={variant === 'primary' ? colors.surface : colors.primary}
           size="small"
         />
       ) : (
@@ -65,13 +66,13 @@ export default function Button({
           {title}
         </Text>
       )}
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   base: {
-    height: 50,
+    height: 52,
     borderRadius: borderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
@@ -80,10 +81,16 @@ const styles = StyleSheet.create({
   primary: {
     backgroundColor: colors.primary,
   },
+  primaryPressed: {
+    backgroundColor: colors.primaryDark,
+  },
   secondary: {
     backgroundColor: 'transparent',
     borderWidth: 1.5,
     borderColor: colors.primary,
+  },
+  secondaryPressed: {
+    backgroundColor: colors.primary + '08',
   },
   textVariant: {
     backgroundColor: 'transparent',
@@ -97,9 +104,10 @@ const styles = StyleSheet.create({
   label: {
     fontSize: typography.fontSizeMD,
     fontWeight: typography.fontWeightSemiBold,
+    letterSpacing: 0.3,
   },
   primaryLabel: {
-    color: colors.background,
+    color: '#FFFFFF',
   },
   secondaryLabel: {
     color: colors.primary,

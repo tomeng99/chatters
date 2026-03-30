@@ -3,11 +3,12 @@ import {
   View,
   TextInput,
   Text,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   ViewStyle,
   TextInputProps,
 } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, typography, spacing, borderRadius } from '../theme';
 
 interface InputProps extends TextInputProps {
@@ -49,12 +50,17 @@ export default function Input({
           {...rest}
         />
         {secureTextEntry && (
-          <TouchableOpacity
+          <Pressable
             onPress={() => setIsSecure((prev) => !prev)}
             style={styles.eyeButton}
+            hitSlop={8}
           >
-            <Text style={styles.eyeText}>{isSecure ? '👁' : '🙈'}</Text>
-          </TouchableOpacity>
+            <MaterialCommunityIcons
+              name={isSecure ? 'eye-off-outline' : 'eye-outline'}
+              size={20}
+              color={colors.textSecondary}
+            />
+          </Pressable>
         )}
         {rightIcon && !secureTextEntry ? (
           <View style={styles.rightIcon}>{rightIcon}</View>
@@ -73,12 +79,13 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizeSM,
     fontWeight: typography.fontWeightMedium,
     color: colors.textSecondary,
-    marginBottom: spacing.xs,
+    marginBottom: spacing.xs + 2,
+    letterSpacing: 0.2,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.border,
     borderRadius: borderRadius.md,
     backgroundColor: colors.surface,
@@ -86,22 +93,19 @@ const styles = StyleSheet.create({
   },
   inputWrapperFocused: {
     borderColor: colors.primary,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
   },
   inputWrapperError: {
     borderColor: colors.error,
   },
   input: {
     flex: 1,
-    height: 50,
+    height: 52,
     fontSize: typography.fontSizeMD,
     color: colors.text,
   },
   eyeButton: {
     padding: spacing.xs,
-  },
-  eyeText: {
-    fontSize: 16,
   },
   rightIcon: {
     marginLeft: spacing.xs,

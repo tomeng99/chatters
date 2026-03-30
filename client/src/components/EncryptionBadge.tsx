@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { colors, typography } from '../theme';
+import { View, StyleSheet } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { colors } from '../theme';
 
 interface EncryptionBadgeProps {
   color?: string;
@@ -13,7 +14,7 @@ export default function EncryptionBadge({
 }: EncryptionBadgeProps) {
   return (
     <View style={styles.container}>
-      <Text style={[styles.icon, { fontSize: size, color }]}>🔒</Text>
+      <MaterialCommunityIcons name="lock" size={size} color={color} />
     </View>
   );
 }
@@ -22,8 +23,5 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  icon: {
-    lineHeight: 14,
   },
 });
