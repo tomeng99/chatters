@@ -36,7 +36,11 @@ function isNativePlatform(): boolean {
 function isIOSWeb(): boolean {
   if (Platform.OS !== 'web' || typeof navigator === 'undefined') return false;
   const ua = navigator.userAgent || '';
-  return /iPhone|iPad|iPod/.test(ua) || (ua.includes('Macintosh') && 'ontouchend' in document);
+  // Standard iOS devices (iPhone, iPad, iPod)
+  const isIOSDevice = /iPhone|iPad|iPod/.test(ua);
+  // iPadOS 13+ reports as Macintosh but has touch support
+  const isIPadOS = ua.includes('Macintosh') && typeof document !== 'undefined' && 'ontouchend' in document;
+  return isIOSDevice || isIPadOS;
 }
 
 export async function requestNotificationPermission(): Promise<boolean> {
