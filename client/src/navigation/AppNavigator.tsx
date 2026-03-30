@@ -9,7 +9,7 @@ import ChatScreen from '../screens/ChatScreen';
 import NewChatScreen from '../screens/NewChatScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import { colors, typography } from '../theme';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, View, StyleSheet } from 'react-native';
 
 export type AuthStackParamList = {
   Login: undefined;
@@ -50,9 +50,11 @@ function AppNavigatorStack() {
     <AppStack.Navigator
       screenOptions={{
         headerStyle: {
-          backgroundColor: colors.background,
-          shadowColor: colors.border,
-          elevation: 1,
+          backgroundColor: colors.surface,
+          shadowColor: 'transparent',
+          elevation: 0,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: colors.border,
         },
         headerTintColor: colors.primary,
         headerTitleStyle: {
@@ -60,6 +62,7 @@ function AppNavigatorStack() {
           fontWeight: typography.fontWeightSemiBold,
           color: colors.text,
         },
+        headerBackTitleVisible: false,
         cardStyle: { backgroundColor: colors.background },
       }}
     >

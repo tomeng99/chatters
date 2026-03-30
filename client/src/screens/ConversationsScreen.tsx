@@ -4,11 +4,13 @@ import {
   FlatList,
   Text,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   ActivityIndicator,
   RefreshControl,
   Platform,
 } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { FAB } from 'react-native-paper';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { AppStackParamList } from '../navigation/AppNavigator';
@@ -54,14 +56,14 @@ export default function ConversationsScreen({ navigation }: Props) {
   useEffect(() => {
     navigation.setOptions({
       headerLeft: () => (
-        <TouchableOpacity onPress={() => navigation.navigate('Settings')} style={{ marginLeft: spacing.md }}>
-          <Text style={{ fontSize: 22 }}>⚙️</Text>
-        </TouchableOpacity>
+        <Pressable onPress={() => navigation.navigate('Settings')} style={{ marginLeft: spacing.md }} hitSlop={8}>
+          <MaterialCommunityIcons name="cog-outline" size={24} color={colors.text} />
+        </Pressable>
       ),
       headerRight: () => (
-        <TouchableOpacity onPress={logout} style={{ marginRight: spacing.md }}>
-          <Text style={{ color: colors.primary, fontSize: typography.fontSizeMD }}>Sign Out</Text>
-        </TouchableOpacity>
+        <Pressable onPress={logout} style={{ marginRight: spacing.md }} hitSlop={8}>
+          <MaterialCommunityIcons name="logout" size={22} color={colors.textSecondary} />
+        </Pressable>
       ),
     });
   }, [navigation, logout]);
@@ -237,9 +239,9 @@ export default function ConversationsScreen({ navigation }: Props) {
         )}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyIcon}>💬</Text>
+            <MaterialCommunityIcons name="chat-outline" size={64} color={colors.border} />
             <Text style={styles.emptyTitle}>No conversations yet</Text>
-            <Text style={styles.emptySubtitle}>Start chatting by tapping the + button</Text>
+            <Text style={styles.emptySubtitle}>Start chatting by tapping the button below</Text>
           </View>
         }
         refreshControl={
@@ -253,13 +255,12 @@ export default function ConversationsScreen({ navigation }: Props) {
           />
         }
       />
-      <TouchableOpacity
+      <FAB
+        icon="pencil"
         style={styles.fab}
         onPress={() => navigation.navigate('NewChat')}
-        activeOpacity={0.85}
-      >
-        <Text style={styles.fabIcon}>✏️</Text>
-      </TouchableOpacity>
+        color="#FFFFFF"
+      />
     </View>
   );
 }
@@ -278,16 +279,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: spacing.xxl * 2,
     paddingHorizontal: spacing.xl,
-  },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: spacing.md,
+    gap: spacing.sm,
   },
   emptyTitle: {
     fontSize: typography.fontSizeXL,
     fontWeight: typography.fontWeightSemiBold,
     color: colors.text,
-    marginBottom: spacing.sm,
+    marginTop: spacing.sm,
   },
   emptySubtitle: {
     fontSize: typography.fontSizeMD,
@@ -297,16 +295,8 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     bottom: spacing.xl,
-    right: spacing.xl,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    right: spacing.lg,
     backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...shadows.md,
-  },
-  fabIcon: {
-    fontSize: 24,
+    borderRadius: borderRadius.lg,
   },
 });

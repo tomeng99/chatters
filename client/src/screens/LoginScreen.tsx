@@ -8,12 +8,13 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { AuthStackParamList } from '../navigation/AppNavigator';
 import { useAuthStore } from '../store/authStore';
 import Button from '../components/Button';
 import Input from '../components/Input';
-import { colors, typography, spacing, borderRadius } from '../theme';
+import { colors, typography, spacing, borderRadius, shadows } from '../theme';
 
 type Props = { navigation: StackNavigationProp<AuthStackParamList, 'Login'> };
 
@@ -46,14 +47,22 @@ export default function LoginScreen({ navigation }: Props) {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
-          <Text style={styles.appName}>💬 Chatters</Text>
+          <View style={styles.logoContainer}>
+            <MaterialCommunityIcons name="chat-processing" size={40} color="#FFFFFF" />
+          </View>
+          <Text style={styles.appName}>Chatters</Text>
           <Text style={styles.subtitle}>Secure private messaging</Text>
         </View>
 
         <View style={styles.card}>
           <Text style={styles.title}>Welcome back</Text>
 
-          {error ? <Text style={styles.error}>{error}</Text> : null}
+          {error ? (
+            <View style={styles.errorContainer}>
+              <MaterialCommunityIcons name="alert-circle-outline" size={16} color={colors.error} />
+              <Text style={styles.error}>{error}</Text>
+            </View>
+          ) : null}
 
           <Input
             label="Username"
@@ -91,7 +100,8 @@ export default function LoginScreen({ navigation }: Props) {
         </View>
 
         <View style={styles.encryptionNote}>
-          <Text style={styles.encryptionText}>🔒 End-to-end encrypted by default</Text>
+          <MaterialCommunityIcons name="shield-lock-outline" size={16} color={colors.textTertiary} />
+          <Text style={styles.encryptionText}>End-to-end encrypted by default</Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -99,7 +109,7 @@ export default function LoginScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.surface },
+  flex: { flex: 1, backgroundColor: colors.background },
   container: {
     flexGrow: 1,
     justifyContent: 'center',
@@ -107,12 +117,23 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: spacing.xl,
+    marginBottom: spacing.xl + 8,
+  },
+  logoContainer: {
+    width: 72,
+    height: 72,
+    borderRadius: 22,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+    ...shadows.md,
   },
   appName: {
-    fontSize: typography.fontSizeXXL + 8,
+    fontSize: typography.fontSizeXXL,
     fontWeight: typography.fontWeightBold,
     color: colors.text,
+    letterSpacing: -0.5,
     marginBottom: spacing.xs,
   },
   subtitle: {
@@ -120,14 +141,10 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   card: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    ...shadows.md,
   },
   title: {
     fontSize: typography.fontSizeXL,
@@ -135,14 +152,19 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: spacing.lg,
   },
-  error: {
-    backgroundColor: '#FFEDEC',
-    color: colors.error,
-    fontSize: typography.fontSizeSM,
-    padding: spacing.sm,
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.error + '0D',
+    padding: spacing.sm + 2,
     borderRadius: borderRadius.sm,
     marginBottom: spacing.md,
-    textAlign: 'center',
+    gap: spacing.xs,
+  },
+  error: {
+    color: colors.error,
+    fontSize: typography.fontSizeSM,
+    flex: 1,
   },
   button: {
     marginTop: spacing.sm,
@@ -158,11 +180,14 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizeSM,
   },
   encryptionNote: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     marginTop: spacing.xl,
+    gap: spacing.xs,
   },
   encryptionText: {
     fontSize: typography.fontSizeSM,
-    color: colors.textSecondary,
+    color: colors.textTertiary,
   },
 });
