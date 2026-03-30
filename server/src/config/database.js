@@ -73,21 +73,41 @@ async function initializeDatabase() {
         iv TEXT,
         is_encrypted BOOLEAN NOT NULL DEFAULT FALSE,
         is_critical BOOLEAN NOT NULL DEFAULT FALSE,
+        message_type TEXT NOT NULL DEFAULT 'text',
+        file_name TEXT,
         created_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
         FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
         FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE
       )
     `);
 
-    // Add is_critical column if it doesn't exist (migration for existing DBs)
+    // Add is_critical, message_type, and file_name columns if they don't exist (migration for existing DBs)
     await client.query(`
       DO $$
       BEGIN
         IF NOT EXISTS (
           SELECT 1 FROM information_schema.columns
-          WHERE table_name = 'messages' AND column_name = 'is_critical'
+          WHERE table_schema = current_schema()
+            AND table_name = 'messages'
+            AND column_name = 'is_critical'
         ) THEN
           ALTER TABLE messages ADD COLUMN is_critical BOOLEAN NOT NULL DEFAULT FALSE;
+        END IF;
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_schema = current_schema()
+            AND table_name = 'messages'
+            AND column_name = 'message_type'
+        ) THEN
+          ALTER TABLE messages ADD COLUMN message_type TEXT NOT NULL DEFAULT 'text';
+        END IF;
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_schema = current_schema()
+            AND table_name = 'messages'
+            AND column_name = 'file_name'
+        ) THEN
+          ALTER TABLE messages ADD COLUMN file_name TEXT;
         END IF;
       END $$
     `);
@@ -116,6 +136,17 @@ async function initializeDatabase() {
         FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE
       )
     `);
+
+    // Add encrypted private key columns for cross-device key recovery
+    await client.query(
+      'ALTER TABLE users ADD COLUMN IF NOT EXISTS encrypted_private_key TEXT'
+    );
+    await client.query(
+      'ALTER TABLE users ADD COLUMN IF NOT EXISTS key_salt TEXT'
+    );
+    await client.query(
+      'ALTER TABLE users ADD COLUMN IF NOT EXISTS key_nonce TEXT'
+    );
 
     await client.query(
       'CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id)'

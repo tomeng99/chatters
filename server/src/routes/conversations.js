@@ -18,7 +18,8 @@ router.get('/', async (req, res) => {
         m.content AS last_message_content,
         m.created_at AS last_message_at,
         m.is_encrypted AS last_message_encrypted,
-        u.username AS last_message_sender
+        u.username AS last_message_sender,
+        m.sender_id AS last_message_sender_id
       FROM conversations c
       JOIN conversation_members cm ON cm.conversation_id = c.id AND cm.user_id = $1
       LEFT JOIN messages m ON m.id = (
@@ -54,6 +55,7 @@ router.get('/', async (req, res) => {
                 createdAt: conv.last_message_at,
                 isEncrypted: Boolean(conv.last_message_encrypted),
                 senderUsername: conv.last_message_sender,
+                senderId: conv.last_message_sender_id,
               }
             : null,
         };
@@ -187,7 +189,7 @@ router.get('/:id/messages', async (req, res) => {
     const params = [id];
     let paramCount = 1;
     let query = `
-      SELECT m.id, m.conversation_id, m.content, m.iv, m.is_encrypted, m.is_critical, m.created_at,
+      SELECT m.id, m.conversation_id, m.content, m.iv, m.is_encrypted, m.is_critical, m.message_type, m.file_name, m.created_at,
              u.id AS sender_id, u.username AS sender_username
       FROM messages m
       JOIN users u ON u.id = m.sender_id
@@ -231,6 +233,8 @@ router.get('/:id/messages', async (req, res) => {
         isEncrypted: Boolean(msg.is_encrypted),
         isCritical: Boolean(msg.is_critical),
         taggedUserIds: tagsByMessage[msg.id] || [],
+        messageType: msg.message_type || 'text',
+        fileName: msg.file_name || null,
         createdAt: msg.created_at,
         sender: { id: msg.sender_id, username: msg.sender_username },
       }))

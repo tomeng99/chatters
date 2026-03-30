@@ -52,11 +52,20 @@ function setupSocket(io) {
 
     socket.on('send_message', async (data, callback) => {
       try {
-        const { conversationId, content, iv, isEncrypted, isCritical, taggedUserIds } = data;
+        const { conversationId, content, iv, isEncrypted, isCritical, taggedUserIds, messageType, fileName } = data;
 
         if (!conversationId || !content) {
           if (callback) callback({ error: 'conversationId and content are required' });
           return;
+        }
+
+        const validTypes = ['text', 'image', 'video', 'file'];
+        const msgType = validTypes.includes(messageType) ? messageType : 'text';
+
+        // Sanitize fileName: only store for non-text types, cap length
+        let safeFileName = null;
+        if (msgType !== 'text' && fileName) {
+          safeFileName = String(fileName).slice(0, 255);
         }
 
         const memberResult = await pool.query(
@@ -74,8 +83,8 @@ function setupSocket(io) {
         const critical = Boolean(isCritical);
 
         await pool.query(
-          'INSERT INTO messages (id, conversation_id, sender_id, content, iv, is_encrypted, is_critical, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
-          [messageId, conversationId, socket.user.id, content, iv || null, Boolean(isEncrypted), critical, now]
+          'INSERT INTO messages (id, conversation_id, sender_id, content, iv, is_encrypted, is_critical, message_type, file_name, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
+          [messageId, conversationId, socket.user.id, content, iv || null, Boolean(isEncrypted), critical, msgType, safeFileName, now]
         );
 
         // Store tags if provided
@@ -107,6 +116,8 @@ function setupSocket(io) {
           isEncrypted: Boolean(isEncrypted),
           isCritical: critical,
           taggedUserIds: validTaggedUserIds,
+          messageType: msgType,
+          fileName: safeFileName,
           createdAt: now,
           sender: { id: socket.user.id, username: socket.user.username },
         };

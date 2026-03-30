@@ -1,6 +1,5 @@
 import { io, Socket } from 'socket.io-client';
-
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001';
+import { API_BASE } from '../config';
 
 interface Message {
   id: string;
@@ -10,6 +9,8 @@ interface Message {
   isEncrypted: boolean;
   isCritical?: boolean;
   taggedUserIds?: string[];
+  messageType?: 'text' | 'image' | 'video' | 'file';
+  fileName?: string | null;
   createdAt: number;
   sender: { id: string; username: string };
 }
@@ -96,7 +97,9 @@ class SocketService {
     iv?: string | null,
     isEncrypted = false,
     isCritical = false,
-    taggedUserIds: string[] = []
+    taggedUserIds: string[] = [],
+    messageType: 'text' | 'image' | 'video' | 'file' = 'text',
+    fileName?: string | null
   ): Promise<{ success: boolean; message?: Message; error?: string }> {
     return new Promise((resolve) => {
       if (!this.socket?.connected) {
@@ -105,7 +108,7 @@ class SocketService {
       }
       this.socket.emit(
         'send_message',
-        { conversationId, content, iv, isEncrypted, isCritical, taggedUserIds },
+        { conversationId, content, iv, isEncrypted, isCritical, taggedUserIds, messageType, fileName },
         (response: { success?: boolean; message?: Message; error?: string }) => {
           resolve({ ...response, success: response.success ?? false });
         }

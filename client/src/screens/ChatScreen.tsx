@@ -12,6 +12,7 @@ import {
   NativeSyntheticEvent,
   TextInputKeyPressEventData,
   NativeScrollEvent,
+  Alert,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
@@ -34,18 +35,21 @@ import {
 } from '../utils/encryption';
 import { decodeBase64, encodeBase64 } from 'tweetnacl-util';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import { colors, typography, spacing, borderRadius, shadows } from '../theme';
+import { API_BASE } from '../config';
 
 type Props = {
   navigation: StackNavigationProp<AppStackParamList, 'Chat'>;
   route: RouteProp<AppStackParamList, 'Chat'>;
 };
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001';
-
 interface DisplayMessage extends Message {
   decryptedContent?: string;
 }
+
+type MessageType = 'text' | 'image' | 'video' | 'file';
 
 export default function ChatScreen({ navigation, route }: Props) {
   const { conversationId, conversationName, isGroup, members } = route.params;
@@ -360,7 +364,7 @@ export default function ChatScreen({ navigation, route }: Props) {
       }
 
       const result = await socketService.sendMessage(
-        conversationId, content, iv, isEncrypted, messageCritical, taggedUserIds
+        conversationId, content, iv, isEncrypted, messageCritical, taggedUserIds, 'text'
       );
 
       if (result.success && result.message) {
@@ -400,6 +404,151 @@ export default function ChatScreen({ navigation, route }: Props) {
     isNearBottomRef.current = distanceFromBottom < 120;
   };
 
+  const uploadFile = useCallback(async (uri: string, fileName: string, mimeType: string, file?: File | null): Promise<{ url: string; fileType: MessageType; fileName: string } | null> => {
+    try {
+      const formData = new FormData();
+
+      if (Platform.OS === 'web') {
+        // On web, use the native File object if available, otherwise fetch the blob URI
+        if (file) {
+          formData.append('file', file, fileName);
+        } else {
+          const response = await fetch(uri);
+          const blob = await response.blob();
+          formData.append('file', blob, fileName);
+        }
+      } else {
+        // On native (iOS/Android), use the { uri, name, type } pattern supported by React Native
+        formData.append('file', {
+          uri,
+          name: fileName,
+          type: mimeType,
+        } as unknown as Blob);
+      }
+
+      const res = await fetch(`${API_BASE}/api/upload`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Upload failed');
+      }
+
+      return await res.json();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Upload failed';
+      Alert.alert('Upload Error', message);
+      return null;
+    }
+  }, [token]);
+
+  const sendMediaMessage = useCallback(async (fileUrl: string, messageType: MessageType, fileName: string) => {
+    setSending(true);
+    try {
+      let content = fileUrl;
+      let iv: string | null = null;
+      let isEncrypted = false;
+
+      if (keyPair) {
+        let payload: EncryptedPayload | null = null;
+
+        if (isGroup) {
+          const gKey = groupSharedKey || (await getOrCreateGroupSharedKey());
+          if (gKey) {
+            payload = encryptGroupMessage(fileUrl, gKey);
+            isEncrypted = true;
+          }
+        } else {
+          const recipient = members.find((m) => m.id !== user?.id);
+          if (recipient) {
+            const recipientPubKey = await getUserPublicKey(recipient.id);
+            if (recipientPubKey) {
+              payload = encryptMessage(fileUrl, recipientPubKey, keyPair.secretKey);
+              isEncrypted = true;
+            }
+          }
+        }
+
+        if (payload) {
+          content = serializeEncryptedPayload(payload);
+          iv = payload.nonce;
+        }
+      }
+
+      const result = await socketService.sendMessage(conversationId, content, iv, isEncrypted, false, [], messageType, fileName);
+
+      if (result.success && result.message) {
+        const displayMsg: DisplayMessage = {
+          ...result.message,
+          decryptedContent: fileUrl,
+        };
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === displayMsg.id)) return prev;
+          return [...prev, displayMsg];
+        });
+      }
+    } finally {
+      setSending(false);
+    }
+  }, [conversationId, keyPair, isGroup, groupSharedKey, getOrCreateGroupSharedKey, getUserPublicKey, user?.id, members]);
+
+  const handlePickImage = useCallback(async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Please allow access to your photo library to send images.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images', 'videos'],
+      quality: 0.8,
+      allowsMultipleSelection: false,
+    });
+
+    if (result.canceled || !result.assets || result.assets.length === 0) return;
+
+    const asset = result.assets[0];
+    const uri = asset.uri;
+    const fileName = asset.fileName || uri.split('/').pop() || 'file';
+    const mimeType = asset.mimeType || (asset.type === 'video' ? 'video/mp4' : 'image/jpeg');
+    const messageType: MessageType = asset.type === 'video' ? 'video' : 'image';
+    // On web, expo-image-picker provides a File object on the asset
+    const webFile = 'file' in asset && asset.file instanceof File ? asset.file : null;
+
+    const uploaded = await uploadFile(uri, fileName, mimeType, webFile);
+    if (uploaded) {
+      await sendMediaMessage(uploaded.url, messageType, uploaded.fileName);
+    }
+  }, [uploadFile, sendMediaMessage]);
+
+  const handlePickDocument = useCallback(async () => {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: ['application/pdf'],
+      copyToCacheDirectory: true,
+    });
+
+    if (result.canceled || !result.assets || result.assets.length === 0) return;
+
+    const asset = result.assets[0];
+    const uri = asset.uri;
+    const fileName = asset.name || 'document.pdf';
+    const mimeType = asset.mimeType || 'application/pdf';
+    // On web, expo-document-picker provides a File object on the asset
+    const webFile = 'file' in asset && asset.file instanceof File ? asset.file : null;
+
+    const uploaded = await uploadFile(uri, fileName, mimeType, webFile);
+    if (uploaded) {
+      await sendMediaMessage(uploaded.url, 'file', uploaded.fileName);
+    }
+  }, [uploadFile, sendMediaMessage]);
+
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
+
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -434,6 +583,8 @@ export default function ChatScreen({ navigation, route }: Props) {
                 createdAt={item.createdAt}
                 senderUsername={item.sender.username}
                 showSender={showSender}
+                messageType={item.messageType}
+                fileName={item.fileName}
               />
             );
           }}
@@ -455,6 +606,18 @@ export default function ChatScreen({ navigation, route }: Props) {
       </View>
 
       <View style={styles.inputBarContainer}>
+        {showAttachMenu && (
+          <View style={styles.attachMenu}>
+            <TouchableOpacity style={styles.attachOption} onPress={() => { setShowAttachMenu(false); handlePickImage(); }}>
+              <Text style={styles.attachOptionIcon}>🖼️</Text>
+              <Text style={styles.attachOptionText}>Photo / Video</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.attachOption} onPress={() => { setShowAttachMenu(false); handlePickDocument(); }}>
+              <Text style={styles.attachOptionIcon}>📄</Text>
+              <Text style={styles.attachOptionText}>Document</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         <View style={styles.inputBar}>
           <TouchableOpacity
             style={[styles.criticalToggle, isCritical && styles.criticalToggleActive]}
@@ -462,6 +625,13 @@ export default function ChatScreen({ navigation, route }: Props) {
             activeOpacity={0.7}
           >
             <Text style={styles.criticalToggleIcon}>❗</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.attachButton}
+            onPress={() => setShowAttachMenu(!showAttachMenu)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.attachIcon}>+</Text>
           </TouchableOpacity>
           <TextInput
             style={styles.textInput}
@@ -572,6 +742,45 @@ const styles = StyleSheet.create({
   },
   criticalToggleIcon: {
     fontSize: 16,
+  },
+  attachButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+  },
+  attachIcon: {
+    fontSize: 22,
+    color: colors.primary,
+    fontWeight: typography.fontWeightBold,
+    lineHeight: 24,
+  },
+  attachMenu: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    backgroundColor: colors.surface,
+    gap: spacing.md,
+  },
+  attachOption: {
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.background,
+  },
+  attachOptionIcon: {
+    fontSize: 24,
+    marginBottom: spacing.xs,
+  },
+  attachOptionText: {
+    fontSize: typography.fontSizeXS,
+    color: colors.text,
   },
   textInput: {
     flex: 1,
