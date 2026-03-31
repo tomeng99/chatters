@@ -21,11 +21,11 @@ type Props = { navigation: StackNavigationProp<AppStackParamList, 'Settings'> };
 
 type NotificationPreference = 'all' | 'tags_and_critical' | 'critical_only' | 'none';
 
-const NOTIFICATION_OPTIONS: { value: NotificationPreference; label: string; description: string; icon: string }[] = [
-  { value: 'all', label: 'All Messages', description: 'Receive notifications for every message', icon: 'bell' },
-  { value: 'tags_and_critical', label: 'Tags & Critical', description: 'Only when you are tagged or the message is critical', icon: 'bell-ring-outline' },
-  { value: 'critical_only', label: 'Critical Only', description: 'Only for messages marked as critical', icon: 'alert-circle-outline' },
-  { value: 'none', label: 'None', description: 'No notifications', icon: 'bell-off-outline' },
+const NOTIFICATION_OPTIONS: { value: NotificationPreference; label: string; description: string }[] = [
+  { value: 'all', label: 'All Messages', description: 'Receive notifications for every message' },
+  { value: 'tags_and_critical', label: 'Tags & Critical', description: 'Only when you are tagged or the message is critical' },
+  { value: 'critical_only', label: 'Critical Only', description: 'Only for messages marked as critical' },
+  { value: 'none', label: 'None', description: 'No notifications' },
 ];
 
 export default function SettingsScreen({ navigation }: Props) {

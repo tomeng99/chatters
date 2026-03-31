@@ -661,12 +661,12 @@ export default function ChatScreen({ navigation, route }: Props) {
             accessibilityLabel="Send message"
           >
             {sending ? (
-              <ActivityIndicator size="small" color={colors.onPrimary} />
+              <ActivityIndicator size="small" color={colors.textSecondary} />
             ) : (
               <MaterialCommunityIcons
                 name="send"
                 size={18}
-                color={!inputText.trim() || sending ? colors.textSecondary : colors.onPrimary}
+                color={!inputText.trim() ? colors.textSecondary : colors.onPrimary}
               />
             )}
           </Pressable>

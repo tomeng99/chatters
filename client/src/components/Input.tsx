@@ -54,6 +54,8 @@ export default function Input({
             onPress={() => setIsSecure((prev) => !prev)}
             style={styles.eyeButton}
             hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={isSecure ? 'Show password' : 'Hide password'}
           >
             <MaterialCommunityIcons
               name={isSecure ? 'eye-off-outline' : 'eye-outline'}
