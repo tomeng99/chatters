@@ -84,7 +84,7 @@ export default function LoginScreen({ navigation }: Props) {
           />
 
           <Row style={styles.footer}>
-            <AppText variant="caption">{`Don't have an account? `}</AppText>
+            <AppText variant="caption">{"Don't have an account? "}</AppText>
             <Button
               title="Register"
               variant="text"

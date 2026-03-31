@@ -36,7 +36,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: typography.fontSizeXL,
-    fontWeight: typography.fontWeightSemiBold,
+    fontWeight: typography.fontWeightBold,
     color: colors.text,
   },
   body: {
