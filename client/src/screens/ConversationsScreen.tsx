@@ -16,6 +16,8 @@ import { useAuthStore } from '../store/authStore';
 import { socketService } from '../services/socketService';
 import { requestNotificationPermission, showNotification } from '../services/notificationService';
 import ConversationItem from '../components/ConversationItem';
+import ScreenContainer from '../components/ScreenContainer';
+import EmptyState from '../components/EmptyState';
 import {
   decryptMessage,
   decryptGroupMessage,
@@ -208,14 +210,14 @@ export default function ConversationsScreen({ navigation }: Props) {
 
   if (loading) {
     return (
-      <View style={styles.centered}>
+      <ScreenContainer centered>
         <ActivityIndicator size="large" color={colors.primary} />
-      </View>
+      </ScreenContainer>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <ScreenContainer>
       <FlatList
         data={conversations}
         keyExtractor={(item) => item.id}
@@ -236,11 +238,11 @@ export default function ConversationsScreen({ navigation }: Props) {
           />
         )}
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyIcon}>💬</Text>
-            <Text style={styles.emptyTitle}>No conversations yet</Text>
-            <Text style={styles.emptySubtitle}>Start chatting by tapping the + button</Text>
-          </View>
+          <EmptyState
+            icon="💬"
+            title="No conversations yet"
+            subtitle="Start chatting by tapping the + button"
+          />
         }
         refreshControl={
           <RefreshControl
@@ -260,40 +262,11 @@ export default function ConversationsScreen({ navigation }: Props) {
       >
         <Text style={styles.fabIcon}>✏️</Text>
       </TouchableOpacity>
-    </View>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  empty: {
-    alignItems: 'center',
-    paddingTop: spacing.xxl * 2,
-    paddingHorizontal: spacing.xl,
-  },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: spacing.md,
-  },
-  emptyTitle: {
-    fontSize: typography.fontSizeXL,
-    fontWeight: typography.fontWeightSemiBold,
-    color: colors.text,
-    marginBottom: spacing.sm,
-  },
-  emptySubtitle: {
-    fontSize: typography.fontSizeMD,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
   fab: {
     position: 'absolute',
     bottom: spacing.xl,

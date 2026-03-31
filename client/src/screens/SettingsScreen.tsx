@@ -12,6 +12,8 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { AppStackParamList } from '../navigation/AppNavigator';
 import { useAuthStore } from '../store/authStore';
 import { requestNotificationPermission, getNotificationPermission } from '../services/notificationService';
+import ScreenContainer from '../components/ScreenContainer';
+import AppText from '../components/AppText';
 import { colors, typography, spacing, borderRadius } from '../theme';
 
 type Props = { navigation: StackNavigationProp<AppStackParamList, 'Settings'> };
@@ -88,9 +90,9 @@ export default function SettingsScreen({ navigation }: Props) {
 
   if (loading) {
     return (
-      <View style={styles.centered}>
+      <ScreenContainer centered>
         <ActivityIndicator size="large" color={colors.primary} />
-      </View>
+      </ScreenContainer>
     );
   }
 
@@ -102,7 +104,7 @@ export default function SettingsScreen({ navigation }: Props) {
             {user?.username?.charAt(0).toUpperCase() || '?'}
           </Text>
         </View>
-        <Text style={styles.username}>{user?.username}</Text>
+        <AppText variant="title">{user?.username}</AppText>
       </View>
 
       <View style={styles.section}>
@@ -201,11 +203,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   profileSection: {
     alignItems: 'center',
     paddingVertical: spacing.xl,
@@ -225,11 +222,6 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizeXXL,
     fontWeight: typography.fontWeightBold,
     color: colors.background,
-  },
-  username: {
-    fontSize: typography.fontSizeXL,
-    fontWeight: typography.fontWeightSemiBold,
-    color: colors.text,
   },
   section: {
     paddingHorizontal: spacing.md,

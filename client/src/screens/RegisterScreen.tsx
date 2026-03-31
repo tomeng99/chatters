@@ -12,6 +12,9 @@ import { AuthStackParamList } from '../navigation/AppNavigator';
 import { useAuthStore } from '../store/authStore';
 import Button from '../components/Button';
 import Input from '../components/Input';
+import Card from '../components/Card';
+import Row from '../components/Row';
+import AppText from '../components/AppText';
 import { colors, typography, spacing, borderRadius } from '../theme';
 
 type Props = { navigation: StackNavigationProp<AuthStackParamList, 'Register'> };
@@ -65,11 +68,11 @@ export default function RegisterScreen({ navigation }: Props) {
       >
         <View style={styles.header}>
           <Text style={styles.appName}>💬 Chatters</Text>
-          <Text style={styles.subtitle}>Create your account</Text>
+          <AppText variant="caption">Create your account</AppText>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.title}>Get started</Text>
+        <Card>
+          <AppText variant="title" style={styles.title}>Get started</AppText>
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -106,20 +109,20 @@ export default function RegisterScreen({ navigation }: Props) {
             style={styles.button}
           />
 
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>Already have an account? </Text>
+          <Row style={styles.footer}>
+            <AppText variant="caption">Already have an account? </AppText>
             <Button
               title="Sign In"
               variant="text"
               onPress={() => navigation.navigate('Login')}
             />
-          </View>
-        </View>
+          </Row>
+        </Card>
 
         <View style={styles.encryptionNote}>
-          <Text style={styles.encryptionText}>
+          <AppText variant="caption" style={styles.encryptionText}>
             🔒 Your messages are end-to-end encrypted. Your private key never leaves your device.
-          </Text>
+          </AppText>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -143,24 +146,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: spacing.xs,
   },
-  subtitle: {
-    fontSize: typography.fontSizeMD,
-    color: colors.textSecondary,
-  },
-  card: {
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
   title: {
-    fontSize: typography.fontSizeXL,
-    fontWeight: typography.fontWeightBold,
-    color: colors.text,
     marginBottom: spacing.lg,
   },
   error: {
@@ -176,14 +162,8 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   footer: {
-    flexDirection: 'row',
     justifyContent: 'center',
-    alignItems: 'center',
     marginTop: spacing.md,
-  },
-  footerText: {
-    color: colors.textSecondary,
-    fontSize: typography.fontSizeSM,
   },
   encryptionNote: {
     alignItems: 'center',
@@ -191,8 +171,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   encryptionText: {
-    fontSize: typography.fontSizeSM,
-    color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
   },
