@@ -624,6 +624,8 @@ export default function ChatScreen({ navigation, route }: Props) {
             style={[styles.criticalToggle, isCritical && styles.criticalToggleActive]}
             onPress={() => setIsCritical(!isCritical)}
             hitSlop={4}
+            accessibilityRole="button"
+            accessibilityLabel={isCritical ? 'Disable critical message' : 'Mark as critical'}
           >
             <MaterialCommunityIcons
               name="alert-circle"
@@ -635,6 +637,8 @@ export default function ChatScreen({ navigation, route }: Props) {
             style={styles.attachButton}
             onPress={() => setShowAttachMenu(!showAttachMenu)}
             hitSlop={4}
+            accessibilityRole="button"
+            accessibilityLabel="Attach file"
           >
             <MaterialCommunityIcons name="plus" size={22} color={colors.primary} />
           </Pressable>
@@ -653,11 +657,17 @@ export default function ChatScreen({ navigation, route }: Props) {
             style={[styles.sendButton, (!inputText.trim() || sending) && styles.sendButtonDisabled]}
             onPress={handleSend}
             disabled={!inputText.trim() || sending}
+            accessibilityRole="button"
+            accessibilityLabel="Send message"
           >
             {sending ? (
               <ActivityIndicator size="small" color={colors.onPrimary} />
             ) : (
-              <MaterialCommunityIcons name="send" size={18} color={colors.onPrimary} />
+              <MaterialCommunityIcons
+                name="send"
+                size={18}
+                color={!inputText.trim() || sending ? colors.textSecondary : colors.onPrimary}
+              />
             )}
           </Pressable>
         </View>

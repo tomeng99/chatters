@@ -15,10 +15,9 @@ import { AppStackParamList } from '../navigation/AppNavigator';
 import { useAuthStore } from '../store/authStore';
 import { requestNotificationPermission, getNotificationPermission } from '../services/notificationService';
 import { colors, typography, spacing, borderRadius } from '../theme';
+import { API_BASE } from '../config';
 
 type Props = { navigation: StackNavigationProp<AppStackParamList, 'Settings'> };
-
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001';
 
 type NotificationPreference = 'all' | 'tags_and_critical' | 'critical_only' | 'none';
 
@@ -133,9 +132,9 @@ export default function SettingsScreen({ navigation }: Props) {
             <RadioButton
               value={option.value}
               status={preference === option.value ? 'checked' : 'unchecked'}
-              onPress={() => updatePreference(option.value)}
               color={colors.primary}
               uncheckedColor={colors.textTertiary}
+              disabled={saving}
             />
             <View style={styles.optionText}>
               <Text

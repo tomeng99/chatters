@@ -56,12 +56,24 @@ export default function ConversationsScreen({ navigation }: Props) {
   useEffect(() => {
     navigation.setOptions({
       headerLeft: () => (
-        <Pressable onPress={() => navigation.navigate('Settings')} style={{ marginLeft: spacing.md }} hitSlop={8}>
+        <Pressable
+          onPress={() => navigation.navigate('Settings')}
+          style={{ marginLeft: spacing.md }}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Open settings"
+        >
           <MaterialCommunityIcons name="cog-outline" size={24} color={colors.text} />
         </Pressable>
       ),
       headerRight: () => (
-        <Pressable onPress={logout} style={{ marginRight: spacing.md }} hitSlop={8}>
+        <Pressable
+          onPress={logout}
+          style={{ marginRight: spacing.md }}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Sign out"
+        >
           <MaterialCommunityIcons name="logout" size={22} color={colors.textSecondary} />
         </Pressable>
       ),
