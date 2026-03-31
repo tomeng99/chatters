@@ -15,9 +15,6 @@ import { useAuthStore } from '../store/authStore';
 import Avatar from '../components/Avatar';
 import Button from '../components/Button';
 import ScreenContainer from '../components/ScreenContainer';
-import Divider from '../components/Divider';
-import Row from '../components/Row';
-import AppText from '../components/AppText';
 import { colors, typography, spacing, borderRadius } from '../theme';
 import { API_BASE } from '../config';
 

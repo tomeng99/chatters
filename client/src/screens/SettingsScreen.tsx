@@ -13,7 +13,6 @@ import { AppStackParamList } from '../navigation/AppNavigator';
 import { useAuthStore } from '../store/authStore';
 import { requestNotificationPermission, getNotificationPermission } from '../services/notificationService';
 import ScreenContainer from '../components/ScreenContainer';
-import Divider from '../components/Divider';
 import AppText from '../components/AppText';
 import { colors, typography, spacing, borderRadius } from '../theme';
 
