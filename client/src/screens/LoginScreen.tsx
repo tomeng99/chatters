@@ -13,6 +13,9 @@ import { AuthStackParamList } from '../navigation/AppNavigator';
 import { useAuthStore } from '../store/authStore';
 import Button from '../components/Button';
 import Input from '../components/Input';
+import Card from '../components/Card';
+import Row from '../components/Row';
+import AppText from '../components/AppText';
 import { colors, typography, spacing, borderRadius } from '../theme';
 
 type Props = { navigation: StackNavigationProp<AuthStackParamList, 'Login'> };
@@ -47,11 +50,11 @@ export default function LoginScreen({ navigation }: Props) {
       >
         <View style={styles.header}>
           <Text style={styles.appName}>💬 Chatters</Text>
-          <Text style={styles.subtitle}>Secure private messaging</Text>
+          <AppText variant="caption">Secure private messaging</AppText>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.title}>Welcome back</Text>
+        <Card>
+          <AppText variant="title" style={styles.title}>Welcome back</AppText>
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -80,18 +83,18 @@ export default function LoginScreen({ navigation }: Props) {
             style={styles.button}
           />
 
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>Don't have an account? </Text>
+          <Row style={styles.footer}>
+            <AppText variant="caption">{`Don't have an account? `}</AppText>
             <Button
               title="Register"
               variant="text"
               onPress={() => navigation.navigate('Register')}
             />
-          </View>
-        </View>
+          </Row>
+        </Card>
 
         <View style={styles.encryptionNote}>
-          <Text style={styles.encryptionText}>🔒 End-to-end encrypted by default</Text>
+          <AppText variant="caption">🔒 End-to-end encrypted by default</AppText>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -115,24 +118,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: spacing.xs,
   },
-  subtitle: {
-    fontSize: typography.fontSizeMD,
-    color: colors.textSecondary,
-  },
-  card: {
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
   title: {
-    fontSize: typography.fontSizeXL,
-    fontWeight: typography.fontWeightBold,
-    color: colors.text,
     marginBottom: spacing.lg,
   },
   error: {
@@ -148,21 +134,11 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   footer: {
-    flexDirection: 'row',
     justifyContent: 'center',
-    alignItems: 'center',
     marginTop: spacing.md,
-  },
-  footerText: {
-    color: colors.textSecondary,
-    fontSize: typography.fontSizeSM,
   },
   encryptionNote: {
     alignItems: 'center',
     marginTop: spacing.xl,
-  },
-  encryptionText: {
-    fontSize: typography.fontSizeSM,
-    color: colors.textSecondary,
   },
 });

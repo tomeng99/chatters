@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Avatar from './Avatar';
 import EncryptionBadge from './EncryptionBadge';
+import Row from './Row';
 import { colors, typography, spacing, borderRadius } from '../theme';
 
 interface ConversationItemProps {
@@ -40,27 +41,27 @@ export default function ConversationItem({
     <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.7}>
       <Avatar username={name} size={52} />
       <View style={styles.content}>
-        <View style={styles.topRow}>
+        <Row style={styles.topRow}>
           <Text style={styles.name} numberOfLines={1}>
             {name}
           </Text>
           {lastMessageAt ? (
             <Text style={styles.time}>{formatTime(lastMessageAt)}</Text>
           ) : null}
-        </View>
-        <View style={styles.bottomRow}>
-          <View style={styles.previewRow}>
+        </Row>
+        <Row style={styles.bottomRow}>
+          <Row style={styles.previewRow}>
             {isEncrypted && <EncryptionBadge size={11} color={colors.textTertiary} />}
             <Text style={styles.lastMessage} numberOfLines={1}>
               {lastMessage || 'No messages yet'}
             </Text>
-          </View>
+          </Row>
           {unreadCount > 0 && (
             <View style={styles.badge}>
               <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
             </View>
           )}
-        </View>
+        </Row>
       </View>
     </TouchableOpacity>
   );
@@ -82,9 +83,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm + 2,
   },
   topRow: {
-    flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
     marginBottom: 3,
   },
   name: {
@@ -99,14 +98,10 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
   },
   bottomRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
   },
   previewRow: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 4,
   },
   lastMessage: {
