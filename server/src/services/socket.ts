@@ -1,56 +1,80 @@
-const jwt = require('jsonwebtoken');
-const { v4: uuidv4 } = require('uuid');
-const { pool } = require('../config/database');
+import jwt from 'jsonwebtoken';
+import { v4 as uuidv4 } from 'uuid';
+import { Server, Socket } from 'socket.io';
+import { pool } from '../config/database';
 
-function getUnixTimestamp() {
+interface AuthenticatedSocket extends Socket {
+  user: {
+    id: string;
+    username: string;
+  };
+}
+
+function getUnixTimestamp(): number {
   return Math.floor(Date.now() / 1000);
 }
 
-function setupSocket(io) {
+export function setupSocket(io: Server): void {
   io.use((socket, next) => {
-    const token = socket.handshake.auth?.token;
+    const token = (socket.handshake.auth as { token?: string })?.token;
     if (!token) {
       return next(new Error('Authentication token required'));
     }
     try {
-      const user = jwt.verify(token, process.env.JWT_SECRET);
-      socket.user = user;
+      const user = jwt.verify(token, process.env.JWT_SECRET as string) as {
+        id: string;
+        username: string;
+      };
+      (socket as AuthenticatedSocket).user = user;
       next();
-    } catch (err) {
+    } catch {
       next(new Error('Invalid or expired token'));
     }
   });
 
   io.on('connection', async (socket) => {
-    console.log(`User connected: ${socket.user.username} (${socket.id})`);
+    const authSocket = socket as AuthenticatedSocket;
+    console.log(`User connected: ${authSocket.user.username} (${authSocket.id})`);
 
     try {
       const result = await pool.query(
         'SELECT conversation_id FROM conversation_members WHERE user_id = $1',
-        [socket.user.id]
+        [authSocket.user.id]
       );
-      result.rows.forEach(({ conversation_id }) => {
-        socket.join(`conversation:${conversation_id}`);
+      result.rows.forEach(({ conversation_id }: { conversation_id: string }) => {
+        authSocket.join(`conversation:${conversation_id}`);
       });
     } catch (err) {
       console.error('Error joining conversation rooms on connect:', err);
     }
 
-    socket.on('join_conversation', async (conversationId) => {
+    authSocket.on('join_conversation', async (conversationId: string) => {
       try {
         const result = await pool.query(
           'SELECT 1 FROM conversation_members WHERE conversation_id = $1 AND user_id = $2',
-          [conversationId, socket.user.id]
+          [conversationId, authSocket.user.id]
         );
         if (result.rows.length > 0) {
-          socket.join(`conversation:${conversationId}`);
+          authSocket.join(`conversation:${conversationId}`);
         }
       } catch (err) {
         console.error('Error joining conversation:', err);
       }
     });
 
-    socket.on('send_message', async (data, callback) => {
+    authSocket.on('send_message', async (
+      data: {
+        conversationId: string;
+        content: string;
+        iv?: string;
+        isEncrypted?: boolean;
+        isCritical?: boolean;
+        taggedUserIds?: string[];
+        messageType?: string;
+        fileName?: string;
+      },
+      callback?: (response: { success?: boolean; message?: object; error?: string }) => void
+    ) => {
       try {
         const { conversationId, content, iv, isEncrypted, isCritical, taggedUserIds, messageType, fileName } = data;
 
@@ -60,17 +84,17 @@ function setupSocket(io) {
         }
 
         const validTypes = ['text', 'image', 'video', 'file'];
-        const msgType = validTypes.includes(messageType) ? messageType : 'text';
+        const msgType = validTypes.includes(messageType ?? '') ? messageType! : 'text';
 
         // Sanitize fileName: only store for non-text types, cap length
-        let safeFileName = null;
+        let safeFileName: string | null = null;
         if (msgType !== 'text' && fileName) {
           safeFileName = String(fileName).slice(0, 255);
         }
 
         const memberResult = await pool.query(
           'SELECT 1 FROM conversation_members WHERE conversation_id = $1 AND user_id = $2',
-          [conversationId, socket.user.id]
+          [conversationId, authSocket.user.id]
         );
 
         if (memberResult.rows.length === 0) {
@@ -84,18 +108,20 @@ function setupSocket(io) {
 
         await pool.query(
           'INSERT INTO messages (id, conversation_id, sender_id, content, iv, is_encrypted, is_critical, message_type, file_name, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
-          [messageId, conversationId, socket.user.id, content, iv || null, Boolean(isEncrypted), critical, msgType, safeFileName, now]
+          [messageId, conversationId, authSocket.user.id, content, iv || null, Boolean(isEncrypted), critical, msgType, safeFileName, now]
         );
 
         // Store tags if provided
-        const validTaggedUserIds = [];
+        const validTaggedUserIds: string[] = [];
         if (taggedUserIds && Array.isArray(taggedUserIds) && taggedUserIds.length > 0) {
           // Fetch all conversation members once to validate tags in memory
           const allMembersResult = await pool.query(
             'SELECT user_id FROM conversation_members WHERE conversation_id = $1',
             [conversationId]
           );
-          const memberIdSet = new Set(allMembersResult.rows.map(r => r.user_id));
+          const memberIdSet = new Set(
+            (allMembersResult.rows as Array<{ user_id: string }>).map((r) => r.user_id)
+          );
 
           for (const taggedUserId of taggedUserIds) {
             if (memberIdSet.has(taggedUserId)) {
@@ -119,7 +145,7 @@ function setupSocket(io) {
           messageType: msgType,
           fileName: safeFileName,
           createdAt: now,
-          sender: { id: socket.user.id, username: socket.user.username },
+          sender: { id: authSocket.user.id, username: authSocket.user.username },
         };
 
         io.to(`conversation:${conversationId}`).emit('new_message', message);
@@ -131,7 +157,7 @@ function setupSocket(io) {
              FROM conversation_members cm
              JOIN users u ON u.id = cm.user_id
              WHERE cm.conversation_id = $1 AND u.id != $2`,
-            [conversationId, socket.user.id]
+            [conversationId, authSocket.user.id]
           );
 
           // Get conversation name for notification
@@ -139,20 +165,22 @@ function setupSocket(io) {
             'SELECT name, is_group FROM conversations WHERE id = $1',
             [conversationId]
           );
-          const convName = convResult.rows[0]?.name || null;
-          const isGroupConv = convResult.rows[0]?.is_group || false;
+          const convRow = convResult.rows[0] as { name: string | null; is_group: boolean } | undefined;
+          const convName = convRow?.name || null;
+          const isGroupConv = convRow?.is_group || false;
 
           // Build a map of userId to sockets once for all members
           const allSockets = await io.in(`conversation:${conversationId}`).fetchSockets();
-          const socketsByUserId = new Map();
+          const socketsByUserId = new Map<string, typeof allSockets[number][]>();
           for (const s of allSockets) {
-            if (s.user && s.user.id) {
-              if (!socketsByUserId.has(s.user.id)) socketsByUserId.set(s.user.id, []);
-              socketsByUserId.get(s.user.id).push(s);
+            const sUser = (s as unknown as AuthenticatedSocket).user;
+            if (sUser?.id) {
+              if (!socketsByUserId.has(sUser.id)) socketsByUserId.set(sUser.id, []);
+              socketsByUserId.get(sUser.id)!.push(s);
             }
           }
 
-          for (const member of membersResult.rows) {
+          for (const member of membersResult.rows as Array<{ id: string; notification_preference: string }>) {
             const pref = member.notification_preference || 'all';
             let shouldNotify = false;
 
@@ -174,7 +202,7 @@ function setupSocket(io) {
                   conversationName: convName,
                   isGroup: isGroupConv,
                   messageId,
-                  senderUsername: socket.user.username,
+                  senderUsername: authSocket.user.username,
                   isCritical: critical,
                   isTagged: validTaggedUserIds.includes(member.id),
                 });
@@ -193,17 +221,17 @@ function setupSocket(io) {
       }
     });
 
-    socket.on('typing', async ({ conversationId, isTyping }) => {
+    authSocket.on('typing', async ({ conversationId, isTyping }: { conversationId: string; isTyping: boolean }) => {
       try {
         const memberResult = await pool.query(
           'SELECT 1 FROM conversation_members WHERE conversation_id = $1 AND user_id = $2',
-          [conversationId, socket.user.id]
+          [conversationId, authSocket.user.id]
         );
         if (memberResult.rows.length === 0) return;
 
-        socket.to(`conversation:${conversationId}`).emit('user_typing', {
-          userId: socket.user.id,
-          username: socket.user.username,
+        authSocket.to(`conversation:${conversationId}`).emit('user_typing', {
+          userId: authSocket.user.id,
+          username: authSocket.user.username,
           isTyping,
         });
       } catch (err) {
@@ -211,10 +239,8 @@ function setupSocket(io) {
       }
     });
 
-    socket.on('disconnect', () => {
-      console.log(`User disconnected: ${socket.user.username} (${socket.id})`);
+    authSocket.on('disconnect', () => {
+      console.log(`User disconnected: ${authSocket.user.username} (${authSocket.id})`);
     });
   });
 }
-
-module.exports = { setupSocket };

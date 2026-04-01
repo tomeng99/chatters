@@ -1,14 +1,15 @@
-const express = require('express');
-const { v4: uuidv4 } = require('uuid');
-const { pool } = require('../config/database');
-const { authenticateToken } = require('../middleware/auth');
+import { Router, Request, Response } from 'express';
+import { v4 as uuidv4 } from 'uuid';
+import { pool } from '../config/database';
+import { authenticateToken, AuthenticatedRequest } from '../middleware/auth';
 
-const router = express.Router();
+const router = Router();
 
 router.use(authenticateToken);
 
-router.get('/', async (req, res) => {
+router.get('/', async (req: Request, res: Response) => {
   try {
+    const authReq = req as AuthenticatedRequest;
     const convsResult = await pool.query(
       `SELECT
         c.id,
@@ -30,11 +31,21 @@ router.get('/', async (req, res) => {
       )
       LEFT JOIN users u ON u.id = m.sender_id
       ORDER BY COALESCE(m.created_at, c.created_at) DESC`,
-      [req.user.id]
+      [authReq.user.id]
     );
 
     const result = await Promise.all(
-      convsResult.rows.map(async (conv) => {
+      convsResult.rows.map(async (conv: {
+        id: string;
+        name: string | null;
+        is_group: boolean;
+        created_at: number;
+        last_message_content: string | null;
+        last_message_at: number | null;
+        last_message_encrypted: boolean | null;
+        last_message_sender: string | null;
+        last_message_sender_id: string | null;
+      }) => {
         const membersResult = await pool.query(
           `SELECT u.id, u.username, u.public_key AS "publicKey"
            FROM conversation_members cm
@@ -69,32 +80,33 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', async (req: Request, res: Response) => {
   try {
-    const { memberUsernames, name } = req.body;
+    const authReq = req as AuthenticatedRequest;
+    const { memberUsernames, name } = req.body as { memberUsernames?: unknown; name?: string };
 
     if (!memberUsernames || !Array.isArray(memberUsernames) || memberUsernames.length === 0) {
-      return res.status(400).json({ error: 'memberUsernames array is required' });
+      res.status(400).json({ error: 'memberUsernames array is required' });
+      return;
     }
 
     const members = await Promise.all(
-      memberUsernames.map(async (username) => {
+      (memberUsernames as string[]).map(async (username) => {
         const result = await pool.query(
           'SELECT id, username, public_key AS "publicKey" FROM users WHERE username = $1',
           [username]
         );
         if (result.rows.length === 0) {
-          const err = new Error(`User '${username}' not found`);
-          err.status = 404;
+          const err = Object.assign(new Error(`User '${username}' not found`), { status: 404 });
           throw err;
         }
-        return result.rows[0];
+        return result.rows[0] as { id: string; username: string; publicKey: string | null };
       })
     );
 
     const isGroup = members.length > 1;
     const conversationId = uuidv4();
-    const conversationName = name || (isGroup ? memberUsernames.join(', ') : null);
+    const conversationName = name || (isGroup ? (memberUsernames as string[]).join(', ') : null);
 
     if (!isGroup) {
       const otherUserId = members[0].id;
@@ -105,11 +117,11 @@ router.post('/', async (req, res) => {
          WHERE c.is_group = false
          AND (SELECT COUNT(*) FROM conversation_members WHERE conversation_id = c.id) = 2
          LIMIT 1`,
-        [req.user.id, otherUserId]
+        [authReq.user.id, otherUserId]
       );
 
       if (existing.rows.length > 0) {
-        const existId = existing.rows[0].id;
+        const existId = existing.rows[0].id as string;
         const existConvResult = await pool.query('SELECT * FROM conversations WHERE id = $1', [existId]);
         const existMembersResult = await pool.query(
           `SELECT u.id, u.username, u.public_key AS "publicKey"
@@ -117,17 +129,18 @@ router.post('/', async (req, res) => {
            WHERE cm.conversation_id = $1`,
           [existId]
         );
-        const existConv = existConvResult.rows[0];
-        return res.json({
+        const existConv = existConvResult.rows[0] as { id: string; name: string | null; is_group: boolean };
+        res.json({
           id: existConv.id,
           name: existConv.name,
           isGroup: false,
           members: existMembersResult.rows,
         });
+        return;
       }
     }
 
-    const allMemberIds = [req.user.id, ...members.map((m) => m.id)];
+    const allMemberIds = [authReq.user.id, ...members.map((m) => m.id)];
     const uniqueMemberIds = [...new Set(allMemberIds)];
 
     const client = await pool.connect();
@@ -164,29 +177,34 @@ router.post('/', async (req, res) => {
       isGroup,
       members: allMembersResult.rows,
     });
-  } catch (err) {
-    if (err.status) return res.status(err.status).json({ error: err.message });
+  } catch (err: unknown) {
+    if ((err as { status?: number }).status) {
+      res.status((err as { status: number }).status).json({ error: (err as Error).message });
+      return;
+    }
     console.error('Create conversation error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-router.get('/:id/messages', async (req, res) => {
+router.get('/:id/messages', async (req: Request, res: Response) => {
   try {
+    const authReq = req as AuthenticatedRequest;
     const { id } = req.params;
-    const limit = Math.min(parseInt(req.query.limit) || 50, 100);
-    const before = req.query.before ? parseInt(req.query.before) : null;
+    const limit = Math.min(parseInt((req.query.limit as string) ?? '') || 50, 100);
+    const before = req.query.before ? parseInt(req.query.before as string) : null;
 
     const memberResult = await pool.query(
       'SELECT 1 FROM conversation_members WHERE conversation_id = $1 AND user_id = $2',
-      [id, req.user.id]
+      [id, authReq.user.id]
     );
 
     if (memberResult.rows.length === 0) {
-      return res.status(403).json({ error: 'Not a member of this conversation' });
+      res.status(403).json({ error: 'Not a member of this conversation' });
+      return;
     }
 
-    const params = [id];
+    const params: (string | number)[] = [id as string];
     let paramCount = 1;
     let query = `
       SELECT m.id, m.conversation_id, m.content, m.iv, m.is_encrypted, m.is_critical, m.message_type, m.file_name, m.created_at,
@@ -208,17 +226,29 @@ router.get('/:id/messages', async (req, res) => {
 
     const messagesResult = await pool.query(query, params);
 
-    const messages = messagesResult.rows.reverse();
+    const messages = messagesResult.rows.reverse() as Array<{
+      id: string;
+      conversation_id: string;
+      content: string;
+      iv: string | null;
+      is_encrypted: boolean;
+      is_critical: boolean;
+      message_type: string;
+      file_name: string | null;
+      created_at: number;
+      sender_id: string;
+      sender_username: string;
+    }>;
 
     // Fetch tags for all messages in one query
     const messageIds = messages.map((m) => m.id);
-    let tagsByMessage = {};
+    const tagsByMessage: Record<string, string[]> = {};
     if (messageIds.length > 0) {
       const tagsResult = await pool.query(
         'SELECT message_id, tagged_user_id FROM message_tags WHERE message_id = ANY($1)',
         [messageIds]
       );
-      for (const tag of tagsResult.rows) {
+      for (const tag of tagsResult.rows as Array<{ message_id: string; tagged_user_id: string }>) {
         if (!tagsByMessage[tag.message_id]) tagsByMessage[tag.message_id] = [];
         tagsByMessage[tag.message_id].push(tag.tagged_user_id);
       }
@@ -245,16 +275,18 @@ router.get('/:id/messages', async (req, res) => {
   }
 });
 
-router.get('/:id/group-key', async (req, res) => {
+router.get('/:id/group-key', async (req: Request, res: Response) => {
   try {
+    const authReq = req as AuthenticatedRequest;
     const { id } = req.params;
 
     const memberResult = await pool.query(
       'SELECT 1 FROM conversation_members WHERE conversation_id = $1 AND user_id = $2',
-      [id, req.user.id]
+      [id, authReq.user.id]
     );
     if (memberResult.rows.length === 0) {
-      return res.status(403).json({ error: 'Not a member of this conversation' });
+      res.status(403).json({ error: 'Not a member of this conversation' });
+      return;
     }
 
     const keyResult = await pool.query(
@@ -263,11 +295,12 @@ router.get('/:id/group-key', async (req, res) => {
        FROM group_keys gk
        JOIN users u ON u.id = gk.sender_id
        WHERE gk.conversation_id = $1 AND gk.user_id = $2`,
-      [id, req.user.id]
+      [id, authReq.user.id]
     );
 
     if (keyResult.rows.length === 0) {
-      return res.json({ exists: false });
+      res.json({ exists: false });
+      return;
     }
 
     res.json({ exists: true, ...keyResult.rows[0] });
@@ -277,18 +310,23 @@ router.get('/:id/group-key', async (req, res) => {
   }
 });
 
-router.put('/:id/group-key', async (req, res) => {
+router.put('/:id/group-key', async (req: Request, res: Response) => {
   try {
+    const authReq = req as AuthenticatedRequest;
     const { id } = req.params;
-    const { keys } = req.body;
+    const { keys } = req.body as {
+      keys?: Array<{ userId: string; encryptedKey: string; nonce: string }>;
+    };
 
     if (!keys || !Array.isArray(keys) || keys.length === 0) {
-      return res.status(400).json({ error: 'keys array is required' });
+      res.status(400).json({ error: 'keys array is required' });
+      return;
     }
 
     for (const key of keys) {
       if (!key.userId || !key.encryptedKey || !key.nonce) {
-        return res.status(400).json({ error: 'Each key must have userId, encryptedKey, and nonce' });
+        res.status(400).json({ error: 'Each key must have userId, encryptedKey, and nonce' });
+        return;
       }
     }
 
@@ -297,18 +335,21 @@ router.put('/:id/group-key', async (req, res) => {
       [id]
     );
     if (convResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Conversation not found' });
+      res.status(404).json({ error: 'Conversation not found' });
+      return;
     }
-    if (!convResult.rows[0].is_group) {
-      return res.status(400).json({ error: 'Group keys are only for group conversations' });
+    if (!(convResult.rows[0] as { is_group: boolean }).is_group) {
+      res.status(400).json({ error: 'Group keys are only for group conversations' });
+      return;
     }
 
     const memberResult = await pool.query(
       'SELECT 1 FROM conversation_members WHERE conversation_id = $1 AND user_id = $2',
-      [id, req.user.id]
+      [id, authReq.user.id]
     );
     if (memberResult.rows.length === 0) {
-      return res.status(403).json({ error: 'Not a member of this conversation' });
+      res.status(403).json({ error: 'Not a member of this conversation' });
+      return;
     }
 
     const existingKey = await pool.query(
@@ -316,7 +357,8 @@ router.put('/:id/group-key', async (req, res) => {
       [id]
     );
     if (existingKey.rows.length > 0) {
-      return res.status(409).json({ error: 'Group key already distributed' });
+      res.status(409).json({ error: 'Group key already distributed' });
+      return;
     }
 
     const client = await pool.connect();
@@ -335,7 +377,7 @@ router.put('/:id/group-key', async (req, res) => {
         await client.query(
           `INSERT INTO group_keys (conversation_id, user_id, encrypted_key, nonce, sender_id)
            VALUES ($1, $2, $3, $4, $5)`,
-          [id, key.userId, key.encryptedKey, key.nonce, req.user.id]
+          [id, key.userId, key.encryptedKey, key.nonce, authReq.user.id]
         );
       }
       await client.query('COMMIT');
@@ -353,4 +395,4 @@ router.put('/:id/group-key', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;
