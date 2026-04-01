@@ -1,21 +1,26 @@
+import { MD3LightTheme } from 'react-native-paper';
+
 export const colors = {
-  primary: '#007AFF',
-  primaryDark: '#0056CC',
-  background: '#FFFFFF',
-  surface: '#F2F2F7',
-  surfaceSecondary: '#E5E5EA',
-  text: '#000000',
-  textSecondary: '#6C6C70',
-  textTertiary: '#AEAEB2',
-  border: '#C6C6C8',
-  error: '#FF3B30',
-  success: '#34C759',
-  warning: '#FF9500',
-  messageBubbleSent: '#007AFF',
-  messageBubbleReceived: '#E5E5EA',
+  primary: '#4F46E5',
+  primaryDark: '#3730A3',
+  primaryLight: '#818CF8',
+  onPrimary: '#FFFFFF',
+  background: '#FAFAFA',
+  surface: '#FFFFFF',
+  surfaceSecondary: '#F3F4F6',
+  text: '#111827',
+  textSecondary: '#6B7280',
+  textTertiary: '#9CA3AF',
+  border: '#E5E7EB',
+  error: '#EF4444',
+  success: '#10B981',
+  warning: '#F59E0B',
+  messageBubbleSent: '#4F46E5',
+  messageBubbleReceived: '#F3F4F6',
   messageBubbleSentText: '#FFFFFF',
-  messageBubbleReceivedText: '#000000',
-  online: '#34C759',
+  messageBubbleReceivedText: '#111827',
+  online: '#10B981',
+  linkSent: '#C7D2FE',
 };
 
 export const typography = {
@@ -24,7 +29,7 @@ export const typography = {
   fontSizeMD: 15,
   fontSizeLG: 17,
   fontSizeXL: 20,
-  fontSizeXXL: 24,
+  fontSizeXXL: 28,
   fontWeightRegular: '400' as const,
   fontWeightMedium: '500' as const,
   fontWeightSemiBold: '600' as const,
@@ -41,10 +46,10 @@ export const spacing = {
 };
 
 export const borderRadius = {
-  sm: 4,
-  md: 8,
-  lg: 16,
-  xl: 24,
+  sm: 6,
+  md: 12,
+  lg: 20,
+  xl: 28,
   round: 9999,
 };
 
@@ -52,15 +57,30 @@ export const shadows = {
   sm: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.05,
     shadowRadius: 2,
-    elevation: 2,
+    elevation: 1,
   },
   md: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 4,
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+};
+
+export const paperTheme = {
+  ...MD3LightTheme,
+  colors: {
+    ...MD3LightTheme.colors,
+    primary: colors.primary,
+    onPrimary: '#FFFFFF',
+    primaryContainer: colors.primaryLight + '20',
+    secondary: colors.textSecondary,
+    background: colors.background,
+    surface: colors.surface,
+    error: colors.error,
+    outline: colors.border,
   },
 };

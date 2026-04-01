@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
-import { colors, typography, borderRadius } from '../theme';
+import { typography } from '../theme';
 
 interface AvatarProps {
   username: string;
@@ -14,8 +14,8 @@ function getInitials(username: string): string {
 
 function stringToColor(str: string): string {
   const palette = [
-    '#5E5CE6', '#32ADE6', '#30D158', '#FF9F0A',
-    '#FF453A', '#FF6961', '#9B59B6', '#1ABC9C',
+    '#4F46E5', '#7C3AED', '#2563EB', '#0891B2',
+    '#059669', '#D97706', '#DC2626', '#DB2777',
   ];
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
@@ -24,9 +24,11 @@ function stringToColor(str: string): string {
   return palette[Math.abs(hash) % palette.length];
 }
 
+const INITIALS_SIZE_RATIO = 0.36;
+
 export default function Avatar({ username, size = 40, style }: AvatarProps) {
   const bg = stringToColor(username);
-  const fontSize = size * 0.38;
+  const fontSize = size * INITIALS_SIZE_RATIO;
 
   return (
     <View
@@ -49,5 +51,6 @@ const styles = StyleSheet.create({
   initials: {
     color: '#FFFFFF',
     fontWeight: typography.fontWeightSemiBold,
+    letterSpacing: 0.5,
   },
 });

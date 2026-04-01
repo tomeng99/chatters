@@ -3,7 +3,7 @@ import {
   View,
   FlatList,
   TextInput,
-  TouchableOpacity,
+  Pressable,
   Text,
   StyleSheet,
   KeyboardAvoidingView,
@@ -14,6 +14,7 @@ import {
   NativeScrollEvent,
   Alert,
 } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { AppStackParamList } from '../navigation/AppNavigator';
@@ -608,31 +609,39 @@ export default function ChatScreen({ navigation, route }: Props) {
       <View style={styles.inputBarContainer}>
         {showAttachMenu && (
           <View style={styles.attachMenu}>
-            <TouchableOpacity style={styles.attachOption} onPress={() => { setShowAttachMenu(false); handlePickImage(); }}>
-              <Text style={styles.attachOptionIcon}>🖼️</Text>
+            <Pressable style={({ pressed }) => [styles.attachOption, pressed && styles.attachOptionPressed]} onPress={() => { setShowAttachMenu(false); handlePickImage(); }}>
+              <MaterialCommunityIcons name="image-outline" size={24} color={colors.primary} />
               <Text style={styles.attachOptionText}>Photo / Video</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.attachOption} onPress={() => { setShowAttachMenu(false); handlePickDocument(); }}>
-              <Text style={styles.attachOptionIcon}>📄</Text>
+            </Pressable>
+            <Pressable style={({ pressed }) => [styles.attachOption, pressed && styles.attachOptionPressed]} onPress={() => { setShowAttachMenu(false); handlePickDocument(); }}>
+              <MaterialCommunityIcons name="file-document-outline" size={24} color={colors.primary} />
               <Text style={styles.attachOptionText}>Document</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         )}
         <View style={styles.inputBar}>
-          <TouchableOpacity
+          <Pressable
             style={[styles.criticalToggle, isCritical && styles.criticalToggleActive]}
             onPress={() => setIsCritical(!isCritical)}
-            activeOpacity={0.7}
+            hitSlop={4}
+            accessibilityRole="button"
+            accessibilityLabel={isCritical ? 'Disable critical message' : 'Mark as critical'}
           >
-            <Text style={styles.criticalToggleIcon}>❗</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
+            <MaterialCommunityIcons
+              name="alert-circle"
+              size={18}
+              color={isCritical ? colors.error : colors.textTertiary}
+            />
+          </Pressable>
+          <Pressable
             style={styles.attachButton}
             onPress={() => setShowAttachMenu(!showAttachMenu)}
-            activeOpacity={0.7}
+            hitSlop={4}
+            accessibilityRole="button"
+            accessibilityLabel="Attach file"
           >
-            <Text style={styles.attachIcon}>+</Text>
-          </TouchableOpacity>
+            <MaterialCommunityIcons name="plus" size={22} color={colors.primary} />
+          </Pressable>
           <TextInput
             style={styles.textInput}
             value={inputText}
@@ -644,18 +653,23 @@ export default function ChatScreen({ navigation, route }: Props) {
             returnKeyType="default"
             onKeyPress={handleKeyPress}
           />
-          <TouchableOpacity
+          <Pressable
             style={[styles.sendButton, (!inputText.trim() || sending) && styles.sendButtonDisabled]}
             onPress={handleSend}
             disabled={!inputText.trim() || sending}
-            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Send message"
           >
             {sending ? (
-              <ActivityIndicator size="small" color={colors.background} />
+              <ActivityIndicator size="small" color={colors.textSecondary} />
             ) : (
-              <Text style={styles.sendIcon}>↑</Text>
+              <MaterialCommunityIcons
+                name="send"
+                size={18}
+                color={!inputText.trim() ? colors.textSecondary : colors.onPrimary}
+              />
             )}
-          </TouchableOpacity>
+          </Pressable>
         </View>
       </View>
     </KeyboardAvoidingView>
@@ -704,7 +718,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   inputBarContainer: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
     flexShrink: 0,
   },
   emptyMessages: {
@@ -720,11 +734,12 @@ const styles = StyleSheet.create({
   inputBar: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm + 2,
     paddingVertical: spacing.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
+    gap: spacing.xs,
   },
   criticalToggle: {
     width: 36,
@@ -732,39 +747,26 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.xs,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceSecondary,
   },
   criticalToggleActive: {
-    backgroundColor: colors.error + '20',
-    borderWidth: 1,
-    borderColor: colors.error,
-  },
-  criticalToggleIcon: {
-    fontSize: 16,
+    backgroundColor: colors.error + '15',
   },
   attachButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceSecondary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.sm,
-  },
-  attachIcon: {
-    fontSize: 22,
-    color: colors.primary,
-    fontWeight: typography.fontWeightBold,
-    lineHeight: 24,
   },
   attachMenu: {
     flexDirection: 'row',
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.sm + 2,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceSecondary,
     gap: spacing.md,
   },
   attachOption: {
@@ -772,27 +774,27 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: borderRadius.md,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
+    gap: spacing.xs,
   },
-  attachOptionIcon: {
-    fontSize: 24,
-    marginBottom: spacing.xs,
+  attachOptionPressed: {
+    opacity: 0.7,
   },
   attachOptionText: {
     fontSize: typography.fontSizeXS,
     color: colors.text,
+    fontWeight: typography.fontWeightMedium,
   },
   textInput: {
     flex: 1,
     minHeight: 40,
     maxHeight: 120,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceSecondary,
     borderRadius: 20,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     fontSize: typography.fontSizeMD,
     color: colors.text,
-    marginRight: spacing.sm,
   },
   sendButton: {
     width: 36,
@@ -803,12 +805,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   sendButtonDisabled: {
-    backgroundColor: colors.surfaceSecondary,
-  },
-  sendIcon: {
-    color: colors.background,
-    fontSize: 18,
-    fontWeight: typography.fontWeightBold,
-    lineHeight: 22,
+    backgroundColor: colors.border,
   },
 });

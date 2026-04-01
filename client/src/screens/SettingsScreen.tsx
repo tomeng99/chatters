@@ -3,20 +3,21 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   ActivityIndicator,
   ScrollView,
   Platform,
 } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { RadioButton } from 'react-native-paper';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { AppStackParamList } from '../navigation/AppNavigator';
 import { useAuthStore } from '../store/authStore';
 import { requestNotificationPermission, getNotificationPermission } from '../services/notificationService';
 import { colors, typography, spacing, borderRadius } from '../theme';
+import { API_BASE } from '../config';
 
 type Props = { navigation: StackNavigationProp<AppStackParamList, 'Settings'> };
-
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001';
 
 type NotificationPreference = 'all' | 'tags_and_critical' | 'critical_only' | 'none';
 
@@ -103,34 +104,38 @@ export default function SettingsScreen({ navigation }: Props) {
           </Text>
         </View>
         <Text style={styles.username}>{user?.username}</Text>
+        <View style={styles.encryptedBadge}>
+          <MaterialCommunityIcons name="shield-check" size={14} color={colors.success} />
+          <Text style={styles.encryptedText}>End-to-end encrypted</Text>
+        </View>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>🔔 Notifications</Text>
+        <View style={styles.sectionHeader}>
+          <MaterialCommunityIcons name="bell-outline" size={20} color={colors.text} />
+          <Text style={styles.sectionTitle}>Notifications</Text>
+        </View>
         <Text style={styles.sectionDescription}>
           Choose which messages trigger notifications
         </Text>
         {NOTIFICATION_OPTIONS.map((option) => (
-          <TouchableOpacity
+          <Pressable
             key={option.value}
-            style={[
+            style={({ pressed }) => [
               styles.optionItem,
               preference === option.value && styles.optionItemSelected,
+              pressed && styles.optionItemPressed,
             ]}
             onPress={() => updatePreference(option.value)}
             disabled={saving}
-            activeOpacity={0.7}
           >
-            <View style={styles.optionRadio}>
-              <View
-                style={[
-                  styles.radioOuter,
-                  preference === option.value && styles.radioOuterSelected,
-                ]}
-              >
-                {preference === option.value && <View style={styles.radioInner} />}
-              </View>
-            </View>
+            <RadioButton
+              value={option.value}
+              status={preference === option.value ? 'checked' : 'unchecked'}
+              color={colors.primary}
+              uncheckedColor={colors.textTertiary}
+              disabled={saving}
+            />
             <View style={styles.optionText}>
               <Text
                 style={[
@@ -142,7 +147,7 @@ export default function SettingsScreen({ navigation }: Props) {
               </Text>
               <Text style={styles.optionDescription}>{option.description}</Text>
             </View>
-          </TouchableOpacity>
+          </Pressable>
         ))}
         {(Platform.OS === 'web' || Platform.OS === 'ios' || Platform.OS === 'android') && (
           <View style={styles.browserNotifSection}>
@@ -151,43 +156,49 @@ export default function SettingsScreen({ navigation }: Props) {
             </Text>
             {browserPermission === 'granted' ? (
               <View style={styles.browserNotifStatus}>
+                <MaterialCommunityIcons name="check-circle" size={18} color={colors.success} />
                 <Text style={styles.browserNotifEnabled}>
-                  {Platform.OS === 'web' ? '✅ Browser notifications enabled' : '✅ Notifications enabled'}
+                  {Platform.OS === 'web' ? 'Browser notifications enabled' : 'Notifications enabled'}
                 </Text>
               </View>
             ) : browserPermission === 'denied' ? (
               <View style={styles.browserNotifStatus}>
+                <MaterialCommunityIcons name="close-circle" size={18} color={colors.error} />
                 <Text style={styles.browserNotifDenied}>
                   {Platform.OS === 'web'
-                    ? '❌ Browser notifications blocked. Please enable them in your browser settings.'
-                    : '❌ Notifications blocked. Please enable them in your device settings.'}
+                    ? 'Browser notifications blocked. Please enable them in your browser settings.'
+                    : 'Notifications blocked. Please enable them in your device settings.'}
                 </Text>
               </View>
             ) : browserPermission === 'ios_web' ? (
-              <View style={styles.browserNotifStatus}>
-                <Text style={styles.browserNotifDenied}>
-                  📱 Safari on iOS does not support notifications for regular websites.
-                </Text>
-                <Text style={[styles.browserNotifDenied, { marginTop: spacing.xs }]}>
-                  To receive notifications, add this app to your Home Screen: tap the Share button (↑) in Safari, then "Add to Home Screen". Once opened from the Home Screen, notifications will work.
-                </Text>
+              <View style={styles.browserNotifInfoBox}>
+                <MaterialCommunityIcons name="cellphone" size={18} color={colors.textSecondary} />
+                <View style={styles.iosNotifTextContainer}>
+                  <Text style={styles.browserNotifDenied}>
+                    Safari on iOS does not support notifications for regular websites.
+                  </Text>
+                  <Text style={[styles.browserNotifDenied, { marginTop: spacing.xs }]}>
+                    To receive notifications, add this app to your Home Screen: tap the Share button in Safari, then "Add to Home Screen".
+                  </Text>
+                </View>
               </View>
             ) : browserPermission === 'unsupported' ? (
               <View style={styles.browserNotifStatus}>
+                <MaterialCommunityIcons name="bell-off-outline" size={18} color={colors.textTertiary} />
                 <Text style={styles.browserNotifDenied}>
                   Notifications are not supported on this browser.
                 </Text>
               </View>
             ) : (
-              <TouchableOpacity
-                style={styles.enableButton}
+              <Pressable
+                style={({ pressed }) => [styles.enableButton, pressed && styles.enableButtonPressed]}
                 onPress={handleEnableBrowserNotifications}
-                activeOpacity={0.7}
               >
+                <MaterialCommunityIcons name="bell-ring-outline" size={18} color="#FFFFFF" />
                 <Text style={styles.enableButtonText}>
-                  {Platform.OS === 'web' ? '🔔 Enable Browser Notifications' : '🔔 Enable Notifications'}
+                  {Platform.OS === 'web' ? 'Enable Browser Notifications' : 'Enable Notifications'}
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             )}
           </View>
         )}
@@ -213,9 +224,9 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
@@ -224,22 +235,37 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: typography.fontSizeXXL,
     fontWeight: typography.fontWeightBold,
-    color: colors.background,
+    color: '#FFFFFF',
   },
   username: {
     fontSize: typography.fontSizeXL,
     fontWeight: typography.fontWeightSemiBold,
     color: colors.text,
+    marginBottom: spacing.xs,
+  },
+  encryptedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  encryptedText: {
+    fontSize: typography.fontSizeSM,
+    color: colors.success,
   },
   section: {
     paddingHorizontal: spacing.md,
     paddingTop: spacing.lg,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
+  },
   sectionTitle: {
     fontSize: typography.fontSizeLG,
     fontWeight: typography.fontWeightSemiBold,
     color: colors.text,
-    marginBottom: spacing.xs,
   },
   sectionDescription: {
     fontSize: typography.fontSizeSM,
@@ -249,37 +275,19 @@ const styles = StyleSheet.create({
   optionItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    paddingRight: spacing.md,
     borderRadius: borderRadius.md,
     marginBottom: spacing.sm,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceSecondary,
   },
   optionItemSelected: {
-    backgroundColor: colors.primary + '12',
+    backgroundColor: colors.primary + '0D',
     borderWidth: 1,
-    borderColor: colors.primary + '40',
+    borderColor: colors.primary + '30',
   },
-  optionRadio: {
-    marginRight: spacing.md,
-  },
-  radioOuter: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
-    borderColor: colors.textTertiary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  radioOuterSelected: {
-    borderColor: colors.primary,
-  },
-  radioInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: colors.primary,
+  optionItemPressed: {
+    opacity: 0.8,
   },
   optionText: {
     flex: 1,
@@ -311,25 +319,44 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   browserNotifStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: spacing.sm,
+    gap: spacing.sm,
+  },
+  browserNotifInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+  },
+  iosNotifTextContainer: {
+    flex: 1,
   },
   browserNotifEnabled: {
     fontSize: typography.fontSizeSM,
     color: colors.success,
+    flex: 1,
   },
   browserNotifDenied: {
     fontSize: typography.fontSizeSM,
     color: colors.textSecondary,
   },
   enableButton: {
+    flexDirection: 'row',
     backgroundColor: colors.primary,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     borderRadius: borderRadius.md,
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
+  enableButtonPressed: {
+    opacity: 0.85,
   },
   enableButtonText: {
-    color: colors.background,
+    color: '#FFFFFF',
     fontSize: typography.fontSizeMD,
     fontWeight: typography.fontWeightSemiBold,
   },

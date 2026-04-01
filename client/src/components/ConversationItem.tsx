@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import Avatar from './Avatar';
 import EncryptionBadge from './EncryptionBadge';
 import { colors, typography, spacing, borderRadius } from '../theme';
@@ -37,7 +37,10 @@ export default function ConversationItem({
   onPress,
 }: ConversationItemProps) {
   return (
-    <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.7}>
+    <Pressable
+      style={({ pressed }) => [styles.container, pressed && styles.containerPressed]}
+      onPress={onPress}
+    >
       <Avatar username={name} size={52} />
       <View style={styles.content}>
         <View style={styles.topRow}>
@@ -62,7 +65,7 @@ export default function ConversationItem({
           )}
         </View>
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 
@@ -71,21 +74,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
+    paddingVertical: spacing.md - 2,
     backgroundColor: colors.background,
+  },
+  containerPressed: {
+    backgroundColor: colors.surfaceSecondary,
   },
   content: {
     flex: 1,
     marginLeft: spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
-    paddingBottom: spacing.sm + 2,
+    paddingBottom: spacing.md - 2,
   },
   topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 3,
+    marginBottom: 4,
   },
   name: {
     flex: 1,
@@ -93,6 +99,7 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeightSemiBold,
     color: colors.text,
     marginRight: spacing.sm,
+    letterSpacing: 0.1,
   },
   time: {
     fontSize: typography.fontSizeXS,
@@ -117,15 +124,15 @@ const styles = StyleSheet.create({
   badge: {
     backgroundColor: colors.primary,
     borderRadius: borderRadius.round,
-    minWidth: 20,
-    height: 20,
+    minWidth: 22,
+    height: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 5,
+    paddingHorizontal: 6,
     marginLeft: spacing.sm,
   },
   badgeText: {
-    color: colors.background,
+    color: '#FFFFFF',
     fontSize: typography.fontSizeXS,
     fontWeight: typography.fontWeightBold,
   },
