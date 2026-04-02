@@ -17,7 +17,7 @@ if (process.env.POSTGRES_SSL === 'true') {
 
 export const pool = new Pool(poolConfig);
 
-export async function initializeDatabase(): Promise<void> {
+export async function initializeDatabase() {
   const client = await pool.connect();
   try {
     await client.query(`

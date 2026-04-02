@@ -3,7 +3,8 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
 import { pool } from '../config/database';
-import { authenticateToken, AuthenticatedRequest } from '../middleware/auth';
+import { authenticateToken } from '../middleware/auth';
+import { JWT_SECRET } from '../config/env';
 
 const router = Router();
 
@@ -59,7 +60,7 @@ router.post('/register', async (req: Request, res: Response) => {
 
     const token = jwt.sign(
       { id: userId, username },
-      process.env.JWT_SECRET as string,
+      JWT_SECRET,
       { expiresIn: '7d' }
     );
 
@@ -106,7 +107,7 @@ router.post('/login', async (req: Request, res: Response) => {
 
     const token = jwt.sign(
       { id: user.id, username: user.username },
-      process.env.JWT_SECRET as string,
+      JWT_SECRET,
       { expiresIn: '7d' }
     );
 
@@ -147,15 +148,13 @@ router.put('/public-key', authenticateToken, async (req: Request, res: Response)
       return;
     }
 
-    const authReq = req as AuthenticatedRequest;
-
     if (backupProvided === 3) {
       await pool.query(
         'UPDATE users SET public_key = $1, encrypted_private_key = $2, key_salt = $3, key_nonce = $4 WHERE id = $5',
-        [publicKey, encryptedPrivateKey, keySalt, keyNonce, authReq.user.id]
+        [publicKey, encryptedPrivateKey, keySalt, keyNonce, req.user.id]
       );
     } else {
-      await pool.query('UPDATE users SET public_key = $1 WHERE id = $2', [publicKey, authReq.user.id]);
+      await pool.query('UPDATE users SET public_key = $1 WHERE id = $2', [publicKey, req.user.id]);
     }
 
     res.json({ success: true });

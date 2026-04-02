@@ -7,16 +7,12 @@ import rateLimit from 'express-rate-limit';
 import path from 'path';
 
 import { initializeDatabase } from './config/database';
+import './config/env'; // Validates required environment variables at startup
 import authRoutes from './routes/auth';
 import conversationRoutes from './routes/conversations';
 import userRoutes from './routes/users';
 import uploadRoutes from './routes/uploads';
 import { setupSocket } from './services/socket';
-
-if (!process.env.JWT_SECRET) {
-  console.error('FATAL: JWT_SECRET environment variable is required');
-  process.exit(1);
-}
 
 const app = express();
 const server = http.createServer(app);

@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
 import { Server, Socket } from 'socket.io';
 import { pool } from '../config/database';
+import { JWT_SECRET } from '../config/env';
 
 interface AuthenticatedSocket extends Socket {
   user: {
@@ -21,7 +22,7 @@ export function setupSocket(io: Server): void {
       return next(new Error('Authentication token required'));
     }
     try {
-      const user = jwt.verify(token, process.env.JWT_SECRET as string) as {
+      const user = jwt.verify(token, JWT_SECRET) as {
         id: string;
         username: string;
       };

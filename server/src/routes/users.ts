@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { pool } from '../config/database';
-import { authenticateToken, AuthenticatedRequest } from '../middleware/auth';
+import { authenticateToken } from '../middleware/auth';
 
 const router = Router();
 
@@ -16,7 +16,6 @@ router.get('/search', async (req: Request, res: Response) => {
       return;
     }
 
-    const authReq = req as AuthenticatedRequest;
     const searchTerm = `%${q.trim()}%`;
     const result = await pool.query(
       `SELECT id, username, public_key
@@ -24,7 +23,7 @@ router.get('/search', async (req: Request, res: Response) => {
        WHERE username ILIKE $1 AND id != $2
        ORDER BY username ASC
        LIMIT 20`,
-      [searchTerm, authReq.user.id]
+      [searchTerm, req.user.id]
     );
 
     res.json(result.rows.map((u: { id: string; username: string; public_key: string | null }) => ({
@@ -40,10 +39,9 @@ router.get('/search', async (req: Request, res: Response) => {
 
 router.get('/settings', async (req: Request, res: Response) => {
   try {
-    const authReq = req as AuthenticatedRequest;
     const result = await pool.query(
       'SELECT notification_preference FROM users WHERE id = $1',
-      [authReq.user.id]
+      [req.user.id]
     );
     if (result.rows.length === 0) {
       res.status(404).json({ error: 'User not found' });
@@ -59,7 +57,6 @@ router.get('/settings', async (req: Request, res: Response) => {
 router.put('/settings', async (req: Request, res: Response) => {
   try {
     const { notificationPreference } = req.body as { notificationPreference?: string };
-    const authReq = req as AuthenticatedRequest;
 
     if (!notificationPreference || !(VALID_NOTIFICATION_PREFERENCES as readonly string[]).includes(notificationPreference)) {
       res.status(400).json({
@@ -70,7 +67,7 @@ router.put('/settings', async (req: Request, res: Response) => {
 
     await pool.query(
       'UPDATE users SET notification_preference = $1 WHERE id = $2',
-      [notificationPreference, authReq.user.id]
+      [notificationPreference, req.user.id]
     );
 
     res.json({ notificationPreference });
@@ -99,3 +96,4 @@ router.get('/:id/publicKey', async (req: Request, res: Response) => {
 });
 
 export default router;
+

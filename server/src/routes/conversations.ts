@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { pool } from '../config/database';
-import { authenticateToken, AuthenticatedRequest } from '../middleware/auth';
+import { authenticateToken } from '../middleware/auth';
 
 const router = Router();
 
@@ -9,7 +9,6 @@ router.use(authenticateToken);
 
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const authReq = req as AuthenticatedRequest;
     const convsResult = await pool.query(
       `SELECT
         c.id,
@@ -31,7 +30,7 @@ router.get('/', async (req: Request, res: Response) => {
       )
       LEFT JOIN users u ON u.id = m.sender_id
       ORDER BY COALESCE(m.created_at, c.created_at) DESC`,
-      [authReq.user.id]
+      [req.user.id]
     );
 
     const result = await Promise.all(
@@ -82,7 +81,6 @@ router.get('/', async (req: Request, res: Response) => {
 
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const authReq = req as AuthenticatedRequest;
     const { memberUsernames, name } = req.body as { memberUsernames?: unknown; name?: string };
 
     if (!memberUsernames || !Array.isArray(memberUsernames) || memberUsernames.length === 0) {
@@ -117,7 +115,7 @@ router.post('/', async (req: Request, res: Response) => {
          WHERE c.is_group = false
          AND (SELECT COUNT(*) FROM conversation_members WHERE conversation_id = c.id) = 2
          LIMIT 1`,
-        [authReq.user.id, otherUserId]
+        [req.user.id, otherUserId]
       );
 
       if (existing.rows.length > 0) {
@@ -140,7 +138,7 @@ router.post('/', async (req: Request, res: Response) => {
       }
     }
 
-    const allMemberIds = [authReq.user.id, ...members.map((m) => m.id)];
+    const allMemberIds = [req.user.id, ...members.map((m) => m.id)];
     const uniqueMemberIds = [...new Set(allMemberIds)];
 
     const client = await pool.connect();
@@ -189,14 +187,13 @@ router.post('/', async (req: Request, res: Response) => {
 
 router.get('/:id/messages', async (req: Request, res: Response) => {
   try {
-    const authReq = req as AuthenticatedRequest;
     const { id } = req.params;
     const limit = Math.min(parseInt((req.query.limit as string) ?? '') || 50, 100);
     const before = req.query.before ? parseInt(req.query.before as string) : null;
 
     const memberResult = await pool.query(
       'SELECT 1 FROM conversation_members WHERE conversation_id = $1 AND user_id = $2',
-      [id, authReq.user.id]
+      [id, req.user.id]
     );
 
     if (memberResult.rows.length === 0) {
@@ -277,12 +274,11 @@ router.get('/:id/messages', async (req: Request, res: Response) => {
 
 router.get('/:id/group-key', async (req: Request, res: Response) => {
   try {
-    const authReq = req as AuthenticatedRequest;
     const { id } = req.params;
 
     const memberResult = await pool.query(
       'SELECT 1 FROM conversation_members WHERE conversation_id = $1 AND user_id = $2',
-      [id, authReq.user.id]
+      [id, req.user.id]
     );
     if (memberResult.rows.length === 0) {
       res.status(403).json({ error: 'Not a member of this conversation' });
@@ -295,7 +291,7 @@ router.get('/:id/group-key', async (req: Request, res: Response) => {
        FROM group_keys gk
        JOIN users u ON u.id = gk.sender_id
        WHERE gk.conversation_id = $1 AND gk.user_id = $2`,
-      [id, authReq.user.id]
+      [id, req.user.id]
     );
 
     if (keyResult.rows.length === 0) {
@@ -312,7 +308,6 @@ router.get('/:id/group-key', async (req: Request, res: Response) => {
 
 router.put('/:id/group-key', async (req: Request, res: Response) => {
   try {
-    const authReq = req as AuthenticatedRequest;
     const { id } = req.params;
     const { keys } = req.body as {
       keys?: Array<{ userId: string; encryptedKey: string; nonce: string }>;
@@ -345,7 +340,7 @@ router.put('/:id/group-key', async (req: Request, res: Response) => {
 
     const memberResult = await pool.query(
       'SELECT 1 FROM conversation_members WHERE conversation_id = $1 AND user_id = $2',
-      [id, authReq.user.id]
+      [id, req.user.id]
     );
     if (memberResult.rows.length === 0) {
       res.status(403).json({ error: 'Not a member of this conversation' });
@@ -377,7 +372,7 @@ router.put('/:id/group-key', async (req: Request, res: Response) => {
         await client.query(
           `INSERT INTO group_keys (conversation_id, user_id, encrypted_key, nonce, sender_id)
            VALUES ($1, $2, $3, $4, $5)`,
-          [id, key.userId, key.encryptedKey, key.nonce, authReq.user.id]
+          [id, key.userId, key.encryptedKey, key.nonce, req.user.id]
         );
       }
       await client.query('COMMIT');
