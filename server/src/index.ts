@@ -1,29 +1,25 @@
-require('dotenv').config();
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const cors = require('cors');
-const rateLimit = require('express-rate-limit');
-const path = require('path');
+import 'dotenv/config';
+import express, { Request, Response, NextFunction } from 'express';
+import http from 'http';
+import { Server } from 'socket.io';
+import cors from 'cors';
+import rateLimit from 'express-rate-limit';
+import path from 'path';
 
-const { initializeDatabase } = require('./config/database');
-const authRoutes = require('./routes/auth');
-const conversationRoutes = require('./routes/conversations');
-const userRoutes = require('./routes/users');
-const uploadRoutes = require('./routes/uploads');
-const { setupSocket } = require('./services/socket');
-
-if (!process.env.JWT_SECRET) {
-  console.error('FATAL: JWT_SECRET environment variable is required');
-  process.exit(1);
-}
+import { initializeDatabase } from './config/database';
+import './config/env'; // Validates required environment variables at startup
+import authRoutes from './routes/auth';
+import conversationRoutes from './routes/conversations';
+import userRoutes from './routes/users';
+import uploadRoutes from './routes/uploads';
+import { setupSocket } from './services/socket';
 
 const app = express();
 const server = http.createServer(app);
 
 const rawAllowedOrigins = process.env.ALLOWED_ORIGINS;
 const parsedAllowedOrigins = rawAllowedOrigins
-  ? rawAllowedOrigins.split(',').map(o => o.trim()).filter(Boolean)
+  ? rawAllowedOrigins.split(',').map((o) => o.trim()).filter(Boolean)
   : [];
 const hasExplicitOrigins = rawAllowedOrigins !== undefined && rawAllowedOrigins !== '';
 if (hasExplicitOrigins && parsedAllowedOrigins.length === 0) {
@@ -39,7 +35,7 @@ const allowedOrigins = hasExplicitOrigins
 // other PCs) work out of the box without configuring ALLOWED_ORIGINS.
 // Only used when ALLOWED_ORIGINS is not explicitly set, so production
 // deployments can fully lock down CORS.
-function isPrivateOrigin(origin) {
+function isPrivateOrigin(origin: string): boolean {
   try {
     const { hostname } = new URL(origin);
     if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') return true;
@@ -55,7 +51,7 @@ function isPrivateOrigin(origin) {
   }
 }
 
-const corsOptions = {
+const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
     if (!origin || allowedOrigins.includes(origin) || (!hasExplicitOrigins && isPrivateOrigin(origin))) {
       callback(null, true);
@@ -94,7 +90,7 @@ const io = new Server(server, {
 
 setupSocket(io);
 
-app.get('/health', (req, res) => {
+app.get('/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: Date.now() });
 });
 
@@ -103,14 +99,15 @@ app.use('/api/conversations', apiLimiter, conversationRoutes);
 app.use('/api/users', apiLimiter, userRoutes);
 app.use('/api/upload', apiLimiter, uploadRoutes);
 
-app.use((err, req, res, next) => {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error('Unhandled error:', err);
   res.status(500).json({ error: 'Internal server error' });
 });
 
 initializeDatabase()
   .then(() => {
-    const PORT = parseInt(process.env.PORT) || 3001;
+    const PORT = parseInt(process.env.PORT ?? '') || 3001;
     server.listen(PORT, '0.0.0.0', () => {
       console.log(`Chatters server running on port ${PORT}`);
     });
@@ -120,4 +117,4 @@ initializeDatabase()
     process.exit(1);
   });
 
-module.exports = { app, server };
+export { app, server };
