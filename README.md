@@ -49,7 +49,7 @@ chatters/
 - Node.js 20+
 - npm
 - Podman 4+
-- podman-compose (or `podman compose` plugin)
+- `podman-compose` package (provides `podman compose` command)
 
 ### 1. Backend Setup
 
@@ -59,7 +59,7 @@ sudo apt update
 sudo apt install -y podman podman-compose
 
 # In project root: starts PostgreSQL + backend
-JWT_SECRET=dev-secret POSTGRES_PASSWORD=chatters podman-compose up -d
+JWT_SECRET=dev-secret POSTGRES_PASSWORD=chatters podman compose up -d
 
 # Health check
 curl http://localhost:3001/health
@@ -83,10 +83,8 @@ npx expo start         # Open in Expo Go (mobile)
 ### 3. Stop Podman Services
 
 ```bash
-podman-compose down
+podman compose down
 ```
-
-If your system uses the compose plugin command, replace `podman-compose` with `podman compose`.
 
 ---
 
