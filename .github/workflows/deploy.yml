@@ -74,4 +74,4 @@ jobs:
             podman compose pull
             podman compose down
             podman compose up -d
-            podman image prune -f
+            podman image prune -af
