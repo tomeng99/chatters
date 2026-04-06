@@ -35,7 +35,22 @@ services:
       postgres:
         condition: service_healthy
     restart: unless-stopped
-    mem_limit: 3584m
+    mem_limit: 3328m
+
+  client:
+    image: ghcr.io/tomeng99/chatters-client:latest
+    build:
+      context: ./client
+      args:
+        # Optional: bake in the API URL at build time.
+        # Leave unset to let the app auto-detect via window.location.hostname.
+        - EXPO_PUBLIC_API_URL=${EXPO_PUBLIC_API_URL:-}
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      - server
+    restart: unless-stopped
+    mem_limit: 256m
 
 volumes:
   postgres_data:

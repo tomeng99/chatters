@@ -6,7 +6,8 @@ on:
       - main
 
 env:
-  IMAGE_NAME: ghcr.io/tomeng99/chatters
+  SERVER_IMAGE: ghcr.io/tomeng99/chatters
+  CLIENT_IMAGE: ghcr.io/tomeng99/chatters-client
 
 jobs:
   build-and-deploy:
@@ -26,14 +27,25 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push image
+      - name: Build and push server image
         uses: docker/build-push-action@v6
         with:
           context: ./server
           push: true
           tags: |
-            ${{ env.IMAGE_NAME }}:latest
-            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.SERVER_IMAGE }}:latest
+            ${{ env.SERVER_IMAGE }}:${{ github.sha }}
+
+      - name: Build and push client image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./client
+          push: true
+          tags: |
+            ${{ env.CLIENT_IMAGE }}:latest
+            ${{ env.CLIENT_IMAGE }}:${{ github.sha }}
+          build-args: |
+            EXPO_PUBLIC_API_URL=${{ secrets.EXPO_PUBLIC_API_URL }}
 
       - name: Deploy on VPS via SSH
         uses: appleboy/ssh-action@v1.2.0
