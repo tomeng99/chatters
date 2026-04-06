@@ -10,7 +10,7 @@
 
 chat.eng.software {
     # REST API → backend container
-    handle /api/* {
+    handle /api* {
         reverse_proxy 127.0.0.1:3001
     }
 

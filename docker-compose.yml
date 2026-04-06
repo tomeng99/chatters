@@ -19,7 +19,7 @@ services:
     image: ghcr.io/tomeng99/chatters:latest
     build: ./server
     ports:
-      - "127.0.0.1:3001:3001"
+      - "${SERVER_BIND_ADDRESS:-0.0.0.0}:3001:3001"
     environment:
       - PORT=3001
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set}
@@ -46,7 +46,7 @@ services:
         # Leave unset to let the app auto-detect via window.location.hostname.
         - EXPO_PUBLIC_API_URL=${EXPO_PUBLIC_API_URL:-}
     ports:
-      - "127.0.0.1:${FRONTEND_PORT:-8080}:80"
+      - "${FRONTEND_HOST_BIND:-0.0.0.0}:${FRONTEND_PORT:-8080}:80"
     depends_on:
       - server
     restart: unless-stopped

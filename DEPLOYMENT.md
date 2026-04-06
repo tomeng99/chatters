@@ -89,15 +89,20 @@ JWT_SECRET=<replace-with-a-long-random-string>
 POSTGRES_PASSWORD=<replace-with-a-strong-password>
 ALLOWED_ORIGINS=https://<your-domain>
 
-# Optional — port to expose the web frontend on the loopback interface (default: 8080).
-# Caddy (or another reverse proxy) proxies HTTPS traffic to this port.
-# Do not set this to 80 or 443 — those are owned by Caddy.
+# Lock container ports to localhost so Caddy is the only public entry point.
+# Remove these (or set to 0.0.0.0) if you need direct LAN access for local dev.
+SERVER_BIND_ADDRESS=127.0.0.1
+FRONTEND_HOST_BIND=127.0.0.1
+
+# Optional — port Caddy proxies to for the web frontend (default: 8080).
+# If you change this, also update the reverse-proxy upstream in deploy/Caddyfile
+# from 127.0.0.1:8080 to the same port.
 # FRONTEND_PORT=8080
 
-# Optional — if you want to bake the API URL into the frontend image at build
-# time rather than relying on auto-detection, set this in CI as a secret called
-# EXPO_PUBLIC_API_URL (e.g. https://chat.eng.software). Leave unset to let the
-# browser auto-detect the backend at window.location.hostname:3001.
+# Required for the Caddy/path-routing deployment — bakes the HTTPS origin into
+# the client image so the web app does not try to reach http://<domain>:3001.
+# Set this as a GitHub Actions secret called EXPO_PUBLIC_API_URL.
+# EXPO_PUBLIC_API_URL=https://<your-domain>
 ```
 
 Generate a safe JWT secret:
@@ -327,10 +332,13 @@ time it handles a request for the domain (ports 80 and 443 must be open).
 
 ### 7d. Update the app environment and GitHub secret
 
-On the VPS, edit `/opt/chatters/.env`:
+On the VPS, edit `/opt/chatters/.env` to set the HTTPS origins and lock the
+container ports to localhost:
 
 ```bash
 ALLOWED_ORIGINS=https://chat.eng.software
+SERVER_BIND_ADDRESS=127.0.0.1
+FRONTEND_HOST_BIND=127.0.0.1
 ```
 
 In GitHub → Settings → Secrets and variables → Actions, set:
@@ -339,8 +347,10 @@ In GitHub → Settings → Secrets and variables → Actions, set:
 EXPO_PUBLIC_API_URL = https://chat.eng.software
 ```
 
-This bakes the HTTPS API URL into the next client image build so the web
-app does not try to call `http://…:3001` after TLS is enabled.
+This is **required** for the Caddy path-routing setup. Without it, the web app
+auto-detects the backend as `https://<domain>:3001`, which is now an internal-only
+port. Setting `EXPO_PUBLIC_API_URL` bakes the correct HTTPS origin (without a
+port) into the client image so API calls are routed through Caddy on port 443.
 
 ### 7e. Restart the containers and trigger a re-deploy
 
@@ -378,7 +388,7 @@ After Caddy is set up and the containers are running:
 |-----|---------|
 | `https://<your-domain>/` | Web frontend (Chatters UI) |
 | `https://<your-domain>/health` | Backend health check |
-| `https://<your-domain>/api` | REST API endpoint |
+| `https://<your-domain>/api/...` | REST API routes |
 
 > **Port 8080 is internal HTTP only.**  
 > Do not access `https://your-domain:8080` — that port serves plain HTTP and
