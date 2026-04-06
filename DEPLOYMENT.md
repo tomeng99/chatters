@@ -39,9 +39,8 @@ VPS containers (managed by Podman + Compose)
 ## 1. VPS Requirements
 
 - Ubuntu 24.04 LTS
-- 1+ CPU, 2+ GB RAM (server capped at 3.5 GB + postgres at 512 MB = 4 GB combined)
+- 1+ CPU, 4+ GB RAM (server capped at 3.5 GB + postgres at 512 MB = 4 GB combined)
 - Podman 4.x or later
-- `podman-compose` plugin
 
 Install on a fresh Ubuntu 24 server:
 
@@ -49,11 +48,8 @@ Install on a fresh Ubuntu 24 server:
 sudo apt update
 sudo apt install -y podman podman-compose
 podman --version          # should be 4.x+
-podman-compose --version
+podman compose version
 ```
-
-> If `podman compose` (built-in plugin) is available on your system you can use
-> that instead of `podman-compose`. Both accept the same compose files.
 
 ---
 
@@ -109,10 +105,10 @@ pulls. The deploy workflow will also re-authenticate before each pull.
 
 ```bash
 cd /opt/chatters
-podman-compose pull                        # pull images once to verify auth
-JWT_SECRET=your-secret podman-compose up -d
+podman compose pull                        # pull images once to verify auth
+JWT_SECRET=your-secret podman compose up -d
 curl http://localhost:3001/health          # should return {"status":"ok",...}
-podman-compose down
+podman compose down
 ```
 
 ---
@@ -127,9 +123,10 @@ Actions → Repository secrets**:
 | `VPS_HOST` | IP address or hostname of your VPS |
 | `VPS_USER` | SSH user on the VPS (e.g. `deploy`) |
 | `VPS_SSH_KEY` | **Private** SSH key for that user (see below) |
-| `VPS_PORT` | SSH port (usually `22`) |
+| `VPS_PORT` | SSH port (usually `22`; defaults to `22` if omitted) |
 | `APP_DIR` | Path to app directory on VPS (e.g. `/opt/chatters`) |
 | `GHCR_PAT` | GitHub PAT with `read:packages` scope (used by VPS pull) |
+| `GHCR_USER` | GitHub username that owns the PAT (e.g. `tomeng99`) |
 
 ### Generating the deploy SSH key
 
@@ -183,23 +180,21 @@ The `docker-compose.yml` splits the 4 GB budget across both containers:
 
 ```yaml
 # postgres service
-deploy:
-  resources:
-    limits:
-      memory: 512m
+mem_limit: 512m
 
 # server service
-deploy:
-  resources:
-    limits:
-      memory: 3584m   # 3.5 GB — combined with postgres = 4 GB
+mem_limit: 3584m   # 3.5 GB — combined with postgres = 4 GB
 ```
 
-On your 6-CPU / 12 GB RAM VPS this leaves plenty of headroom for the OS,
-PostgreSQL, and other workloads. PostgreSQL memory is controlled by its own
-configuration (`shared_buffers`, `work_mem`, etc.) and is not limited by
-compose by default. If you want to cap it too, add the same `deploy.resources`
-block to the `postgres` service.
+On your 6-CPU / 12 GB RAM VPS this leaves plenty of headroom for the OS
+and other workloads. Both services already have memory limits configured in
+`docker-compose.yml` via `mem_limit`: `server` is capped at `3584m` (3.5 GB)
+and `postgres` at `512m`. PostgreSQL memory is also influenced by its own
+configuration (`shared_buffers`, `work_mem`, etc.); tune those as needed.
+
+> **Note:** `mem_limit` is a top-level Compose Spec key and is enforced by
+> `podman compose` on Linux via cgroups. It is also honoured by Docker Compose
+> without requiring compatibility mode, unlike the `deploy.resources` block.
 
 ---
 
