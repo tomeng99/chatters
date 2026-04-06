@@ -22,10 +22,12 @@ GitHub push to main
 GitHub Actions
     ├── Build server image  → ghcr.io/tomeng99/chatters:latest
     ├── Build client image  → ghcr.io/tomeng99/chatters-client:latest
-    └── SSH → VPS
+    └── Deploy → VPS
+            ├── scp docker-compose.yml → /opt/chatters/
             ├── podman compose pull
+            ├── podman compose down
             ├── podman compose up -d
-            └── podman image prune -f
+            └── podman image prune -af
 
 VPS containers (managed by Podman + Compose)
     ├── chatters-client   (port 80,  memory ≤ 256 MB) ← web frontend (Nginx)
@@ -169,11 +171,13 @@ The workflow (`.github/workflows/deploy.yml`) triggers on every push to `main`:
 3. **Push** — Both images are pushed to GHCR as:
    - `ghcr.io/tomeng99/chatters:latest` / `ghcr.io/tomeng99/chatters:<git-sha>`
    - `ghcr.io/tomeng99/chatters-client:latest` / `ghcr.io/tomeng99/chatters-client:<git-sha>`
-4. **Deploy** — Actions SSHs into the VPS and runs:
+4. **Deploy** — Actions copies the latest `docker-compose.yml` to `APP_DIR` on
+   the VPS, then SSHs in and runs:
    ```bash
    podman compose pull
+   podman compose down
    podman compose up -d
-   podman image prune -f
+   podman image prune -af
    ```
 
 ### Making the GHCR package public (optional)

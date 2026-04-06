@@ -60,6 +60,16 @@ jobs:
             done
           done
 
+      - name: Copy compose file to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || '22' }}
+          source: docker-compose.yml
+          target: ${{ secrets.APP_DIR }}
+
       - name: Deploy on VPS via SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
