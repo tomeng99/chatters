@@ -46,7 +46,7 @@ services:
         # Leave unset to let the app auto-detect via window.location.hostname.
         - EXPO_PUBLIC_API_URL=${EXPO_PUBLIC_API_URL:-}
     ports:
-      - "${FRONTEND_PORT:-80}:80"
+      - "${FRONTEND_PORT:-8080}:80"
     depends_on:
       - server
     restart: unless-stopped
