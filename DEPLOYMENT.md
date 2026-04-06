@@ -29,11 +29,16 @@ GitHub Actions
             ├── podman compose up -d
             └── podman image prune -af
 
-VPS containers (managed by Podman + Compose)
-    ├── chatters-client   (port 80,  memory ≤ 256 MB) ← web frontend (Nginx)
-    ├── chatters-server   (port 3001, memory ≤ 3.3 GB) ← API + WebSocket
-    └── chatters-postgres (internal, port 5432, memory ≤ 512 MB)
-                                     ← combined ≤ 4 GB
+VPS (public HTTPS via Caddy — runs as a system service)
+    └── Caddy  (ports 80 + 443, auto-TLS via Let's Encrypt)
+            ├── /api/*, /socket.io/*, /uploads/*, /health → 127.0.0.1:3001
+            └── /*                                        → 127.0.0.1:8080
+
+Podman containers (localhost-only, not directly reachable from the internet)
+    ├── chatters-client   (127.0.0.1:8080, memory ≤ 256 MB)  ← Nginx, web frontend
+    ├── chatters-server   (127.0.0.1:3001, memory ≤ 3.3 GB)  ← Express API + Socket.IO
+    └── chatters-postgres (internal 5432,  memory ≤ 512 MB)  ← PostgreSQL
+                                                               ← combined ≤ 4 GB
 ```
 
 ---
@@ -43,6 +48,9 @@ VPS containers (managed by Podman + Compose)
 - Ubuntu 24.04 LTS
 - 1+ CPU, 4+ GB RAM (server capped at 3.5 GB + postgres at 512 MB = 4 GB combined)
 - Podman 4.x or later
+- Caddy (for HTTPS — see section 7)
+- Domain name with an `A` record pointing to the VPS IP (required for TLS certificates)
+- Ports **80** and **443** open on the VPS firewall
 
 Install on a fresh Ubuntu 24 server:
 
@@ -79,18 +87,22 @@ Copy `docker-compose.yml` from this repo to `/opt/chatters/docker-compose.yml`
 
 JWT_SECRET=<replace-with-a-long-random-string>
 POSTGRES_PASSWORD=<replace-with-a-strong-password>
-ALLOWED_ORIGINS=http://<your-domain-or-server-ip>
+ALLOWED_ORIGINS=https://<your-domain>
 
-# For production with TLS, use https:// to prevent session hijacking:
-# ALLOWED_ORIGINS=https://<your-domain>
+# Lock container ports to localhost so Caddy is the only public entry point.
+# Remove these (or set to 0.0.0.0) if you need direct LAN access for local dev.
+SERVER_BIND_ADDRESS=127.0.0.1
+FRONTEND_HOST_BIND=127.0.0.1
 
-# Optional — port to expose the web frontend on (default: 80)
-# FRONTEND_PORT=80
+# Optional — port Caddy proxies to for the web frontend (default: 8080).
+# If you change this, also update the reverse-proxy upstream in deploy/Caddyfile
+# from 127.0.0.1:8080 to the same port.
+# FRONTEND_PORT=8080
 
-# Optional — if you want to bake the API URL into the frontend image at build
-# time rather than relying on auto-detection, set this in CI as a secret called
-# EXPO_PUBLIC_API_URL (e.g. https://api.example.com). Leave unset to let the
-# browser auto-detect the backend at window.location.hostname:3001.
+# Required for the Caddy/path-routing deployment — bakes the HTTPS origin into
+# the client image so the web app does not try to reach http://<domain>:3001.
+# Set this as a GitHub Actions secret called EXPO_PUBLIC_API_URL.
+# EXPO_PUBLIC_API_URL=https://<your-domain>
 ```
 
 Generate a safe JWT secret:
@@ -140,7 +152,7 @@ Actions → Repository secrets**:
 | `APP_DIR` | Path to app directory on VPS (e.g. `/opt/chatters`) |
 | `GHCR_PAT` | GitHub PAT with `read:packages` scope (used by VPS pull) |
 | `GHCR_USER` | GitHub username that owns the PAT (e.g. `tomeng99`) |
-| `EXPO_PUBLIC_API_URL` | *(Optional)* Full URL of the backend API to bake into the client image at build time (e.g. `https://chat.eng.software:3001`). Leave unset to use auto-detection. |
+| `EXPO_PUBLIC_API_URL` | *(Optional)* Full URL of the backend API to bake into the client image at build time (e.g. `https://chat.eng.software`). Leave unset to use auto-detection. |
 
 ### Generating the deploy SSH key
 
@@ -253,31 +265,139 @@ configuration (`shared_buffers`, `work_mem`, etc.); tune those as needed.
 
 ---
 
-## 7. Accessing the App
+## 7. HTTPS Setup with Caddy
 
-After deploy, two services are running on your VPS:
+Caddy runs as a **system service** on the VPS (outside the container stack).  
+It handles TLS automatically (free certificates from Let's Encrypt) and proxies
+traffic to the Podman containers over localhost. The containers are bound to
+`127.0.0.1` only and are **not** directly reachable from the internet.
 
-| URL | Purpose |
-|-----|---------|
-| `http://<VPS_IP>/` | Web frontend (Chatters UI) |
-| `http://<VPS_IP>:3001/health` | Backend health check |
-| `http://<VPS_IP>:3001` | API + WebSocket endpoint |
+> **Why Caddy and not just port 8080?**  
+> Port 8080 (the frontend container) serves plain HTTP. Browsers require port
+> 443 and a valid TLS certificate for a connection to be shown as "secure".
+> Attempting `curl -Ik https://host:8080` fails with an SSL `wrong version number`
+> error because the TLS handshake hits a plain HTTP response — exactly what
+> Caddy fixes.
 
-The web frontend auto-detects the backend: when loaded from `http://<VPS_IP>`,
-it connects to `http://<VPS_IP>:3001` automatically.
+### 7a. Open ports on the VPS firewall
 
-For a custom domain (e.g. `chat.eng.software`), point DNS to the VPS and set
-`ALLOWED_ORIGINS=http://chat.eng.software` in `/opt/chatters/.env`.
+Ports 80 (HTTP challenge for cert issuance) and 443 (HTTPS) must be reachable
+from the internet. With UFW:
 
-For production TLS, put Nginx (or Caddy) in front of port 80 and 3001 with
-your certificate. A minimal Nginx vhost for the web frontend would proxy to the
-client container; alternatively the `FRONTEND_PORT` variable lets you bind the
-client container directly to a different port if you prefer to terminate TLS
-outside the container stack.
+```bash
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw reload
+```
+
+### 7b. Install Caddy
+
+```bash
+sudo apt update
+sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https curl
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
+  | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' \
+  | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+sudo apt update
+sudo apt install -y caddy
+```
+
+### 7c. Deploy the Caddyfile
+
+A ready-made config is provided at `deploy/Caddyfile` in this repository.
+Copy it to the VPS and replace the placeholder domain:
+
+```bash
+# On your local machine — scp the file to the VPS:
+scp deploy/Caddyfile deploy@<VPS_IP>:/tmp/Caddyfile
+
+# On the VPS — install it.
+# If your domain is NOT chat.eng.software, replace it first:
+sudo sed 's/chat\.eng\.software/<your-actual-domain>/g' /tmp/Caddyfile \
+  | sudo tee /etc/caddy/Caddyfile
+sudo systemctl reload caddy
+sudo systemctl status caddy   # should show "active (running)"
+```
+
+If your domain is already `chat.eng.software` you can skip the `sed` step:
+
+```bash
+sudo cp /tmp/Caddyfile /etc/caddy/Caddyfile
+sudo systemctl reload caddy
+```
+
+Caddy will automatically request a certificate from Let's Encrypt the first
+time it handles a request for the domain (ports 80 and 443 must be open).
+
+### 7d. Update the app environment and GitHub secret
+
+On the VPS, edit `/opt/chatters/.env` to set the HTTPS origins and lock the
+container ports to localhost:
+
+```bash
+ALLOWED_ORIGINS=https://chat.eng.software
+SERVER_BIND_ADDRESS=127.0.0.1
+FRONTEND_HOST_BIND=127.0.0.1
+```
+
+In GitHub → Settings → Secrets and variables → Actions, set:
+
+```
+EXPO_PUBLIC_API_URL = https://chat.eng.software
+```
+
+This is **required** for the Caddy path-routing setup. Without it, the web app
+auto-detects the backend as `https://<domain>:3001`, which is now an internal-only
+port. Setting `EXPO_PUBLIC_API_URL` bakes the correct HTTPS origin (without a
+port) into the client image so API calls are routed through Caddy on port 443.
+
+### 7e. Restart the containers and trigger a re-deploy
+
+```bash
+cd /opt/chatters
+podman compose down
+podman compose up -d
+```
+
+Then push any small change to `main` (or re-run the workflow manually in
+GitHub Actions) so the client image is rebuilt with the updated
+`EXPO_PUBLIC_API_URL`.
+
+### Architecture after Caddy is running
+
+```
+browser → https://chat.eng.software (port 443)
+               │
+               ▼
+         Caddy (system service, handles TLS)
+               ├── /api/*        → http://127.0.0.1:3001  (Express API)
+               ├── /socket.io/*  → http://127.0.0.1:3001  (Socket.IO WebSocket)
+               ├── /uploads/*    → http://127.0.0.1:3001  (file serving)
+               ├── /health       → http://127.0.0.1:3001  (health check)
+               └── /*            → http://127.0.0.1:8080  (Nginx web frontend)
+```
 
 ---
 
-## 8. Rollback
+## 8. Accessing the App
+
+After Caddy is set up and the containers are running:
+
+| URL | Purpose |
+|-----|---------|
+| `https://<your-domain>/` | Web frontend (Chatters UI) |
+| `https://<your-domain>/health` | Backend health check |
+| `https://<your-domain>/api/...` | REST API routes |
+
+> **Port 8080 is internal HTTP only.**  
+> Do not access `https://your-domain:8080` — that port serves plain HTTP and
+> TLS clients will get an `SSL wrong version number` error. Always use the
+> standard HTTPS URL (port 443) via Caddy.
+
+---
+
+## 9. Rollback
 
 Each push is also tagged with the commit SHA. To roll back, SSH into the VPS
 and change the image tags in `docker-compose.yml` to a previous SHA, then
@@ -292,7 +412,7 @@ podman compose up -d
 
 ---
 
-## 9. Logs and Monitoring
+## 10. Logs and Monitoring
 
 ```bash
 # Follow server logs
