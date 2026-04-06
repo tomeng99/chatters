@@ -29,6 +29,8 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-chatters}
       - POSTGRES_DB=chatters
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-}
+    volumes:
+      - uploads_data:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -37,3 +39,4 @@ services:
 
 volumes:
   postgres_data:
+  uploads_data:

@@ -174,7 +174,27 @@ Check/set visibility:
 
 ---
 
-## 5. Resource Limits
+## 5. Persistent Uploads
+
+Uploaded files are stored inside the container at `/app/uploads`. The
+`docker-compose.yml` mounts a named volume (`uploads_data`) at that path so
+files survive container restarts and image upgrades:
+
+```yaml
+volumes:
+  - uploads_data:/app/uploads
+```
+
+Podman/Docker creates and manages this volume automatically — no manual setup
+is required on the VPS.
+
+> **Note:** If you previously ran the stack without this volume, existing
+> uploaded files inside the old container are not migrated automatically.
+> They are lost when the container is replaced. Future uploads will persist.
+
+---
+
+## 6. Resource Limits
 
 The `docker-compose.yml` splits the 4 GB budget across both containers:
 
@@ -198,7 +218,7 @@ configuration (`shared_buffers`, `work_mem`, etc.); tune those as needed.
 
 ---
 
-## 6. Accessing the App
+## 7. Accessing the App
 
 After deploy, the server listens on port `3001` of your VPS.
 
@@ -218,7 +238,7 @@ port 3001 with TLS.
 
 ---
 
-## 7. Rollback
+## 8. Rollback
 
 Each push is also tagged with the commit SHA. To roll back, SSH into the VPS
 and change the image tag in `docker-compose.yml` to a previous SHA, then
@@ -232,7 +252,7 @@ podman compose up -d
 
 ---
 
-## 8. Logs and Monitoring
+## 9. Logs and Monitoring
 
 ```bash
 # Follow server logs
