@@ -2,15 +2,14 @@
 
 This guide explains how to set up automated deployment for Chatters using:
 
-- **GitHub Actions** — builds the server image on every push to `main`
-- **GHCR (GitHub Container Registry)** — stores the built image
+- **GitHub Actions** — builds the server and client images on every push to `main`
+- **GHCR (GitHub Container Registry)** — stores the built images
 - **Podman** — runs the containers on your VPS (no Docker daemon required)
 
 > The **client** (Expo / React Native) is a mobile-first app. For production,
 > users install it on their phone via Expo Go or a native build. The web variant
-> can be served separately if needed. This guide focuses on the **server**
-> (Node.js + Socket.io + PostgreSQL), which is the only service that runs on
-> the VPS.
+> is built and served from a dedicated Nginx container so users can also access
+> the app from a browser until the mobile apps are available in the stores.
 
 ---
 
@@ -21,15 +20,16 @@ GitHub push to main
     │
     ▼
 GitHub Actions
-    ├── Build server image
-    ├── Push to ghcr.io/tomeng99/chatters:latest (+ :<sha>)
+    ├── Build server image  → ghcr.io/tomeng99/chatters:latest
+    ├── Build client image  → ghcr.io/tomeng99/chatters-client:latest
     └── SSH → VPS
             ├── podman compose pull
             ├── podman compose up -d
             └── podman image prune -f
 
 VPS containers (managed by Podman + Compose)
-    ├── chatters-server   (port 3001, memory ≤ 3.5 GB)
+    ├── chatters-client   (port 80,  memory ≤ 256 MB) ← web frontend (Nginx)
+    ├── chatters-server   (port 3001, memory ≤ 3.3 GB) ← API + WebSocket
     └── chatters-postgres (internal, port 5432, memory ≤ 512 MB)
                                      ← combined ≤ 4 GB
 ```
@@ -77,7 +77,18 @@ Copy `docker-compose.yml` from this repo to `/opt/chatters/docker-compose.yml`
 
 JWT_SECRET=<replace-with-a-long-random-string>
 POSTGRES_PASSWORD=<replace-with-a-strong-password>
-ALLOWED_ORIGINS=https://<your-domain-or-server-ip>:3001
+ALLOWED_ORIGINS=http://<your-domain-or-server-ip>
+
+# For production with TLS, use https:// to prevent session hijacking:
+# ALLOWED_ORIGINS=https://<your-domain>
+
+# Optional — port to expose the web frontend on (default: 80)
+# FRONTEND_PORT=80
+
+# Optional — if you want to bake the API URL into the frontend image at build
+# time rather than relying on auto-detection, set this in CI as a secret called
+# EXPO_PUBLIC_API_URL (e.g. https://api.example.com). Leave unset to let the
+# browser auto-detect the backend at window.location.hostname:3001.
 ```
 
 Generate a safe JWT secret:
@@ -127,6 +138,7 @@ Actions → Repository secrets**:
 | `APP_DIR` | Path to app directory on VPS (e.g. `/opt/chatters`) |
 | `GHCR_PAT` | GitHub PAT with `read:packages` scope (used by VPS pull) |
 | `GHCR_USER` | GitHub username that owns the PAT (e.g. `tomeng99`) |
+| `EXPO_PUBLIC_API_URL` | *(Optional)* Full URL of the backend API to bake into the client image at build time (e.g. `https://chat.eng.software:3001`). Leave unset to use auto-detection. |
 
 ### Generating the deploy SSH key
 
@@ -152,11 +164,12 @@ Add the **private** key (`~/.ssh/chatters_deploy` contents) as the
 
 The workflow (`.github/workflows/deploy.yml`) triggers on every push to `main`:
 
-1. **Build** — GitHub Actions builds `server/` using the `Dockerfile`.
-2. **Push** — The image is pushed to GHCR as:
-   - `ghcr.io/tomeng99/chatters:latest`
-   - `ghcr.io/tomeng99/chatters:<git-sha>` (for rollbacks)
-3. **Deploy** — Actions SSHs into the VPS and runs:
+1. **Build server** — GitHub Actions builds `server/` using the server `Dockerfile`.
+2. **Build client** — GitHub Actions builds `client/` using the client `Dockerfile` (Expo web export → Nginx).
+3. **Push** — Both images are pushed to GHCR as:
+   - `ghcr.io/tomeng99/chatters:latest` / `ghcr.io/tomeng99/chatters:<git-sha>`
+   - `ghcr.io/tomeng99/chatters-client:latest` / `ghcr.io/tomeng99/chatters-client:<git-sha>`
+4. **Deploy** — Actions SSHs into the VPS and runs:
    ```bash
    podman compose pull
    podman compose up -d
@@ -209,14 +222,19 @@ VPS setup is required.
 
 ## 6. Resource Limits
 
-The `docker-compose.yml` splits the 4 GB budget across both containers:
+The `docker-compose.yml` splits the 4 GB budget across all containers:
 
 ```yaml
 # postgres service
 mem_limit: 512m
 
 # server service
-mem_limit: 3584m   # 3.5 GB — combined with postgres = 4 GB
+mem_limit: 3328m   # 3.3 GB
+
+# client service (Nginx static serving)
+mem_limit: 256m
+
+# combined ≈ 4 GB
 ```
 
 On your 6-CPU / 12 GB RAM VPS this leaves plenty of headroom for the OS
@@ -233,33 +251,38 @@ configuration (`shared_buffers`, `work_mem`, etc.); tune those as needed.
 
 ## 7. Accessing the App
 
-After deploy, the server listens on port `3001` of your VPS.
+After deploy, two services are running on your VPS:
 
 | URL | Purpose |
 |-----|---------|
-| `http://<VPS_IP>:3001/health` | Health check |
+| `http://<VPS_IP>/` | Web frontend (Chatters UI) |
+| `http://<VPS_IP>:3001/health` | Backend health check |
 | `http://<VPS_IP>:3001` | API + WebSocket endpoint |
 
-Point your Expo client at the server by setting:
+The web frontend auto-detects the backend: when loaded from `http://<VPS_IP>`,
+it connects to `http://<VPS_IP>:3001` automatically.
 
-```bash
-EXPO_PUBLIC_API_URL=http://<VPS_IP>:3001
-```
+For a custom domain (e.g. `chat.eng.software`), point DNS to the VPS and set
+`ALLOWED_ORIGINS=http://chat.eng.software` in `/opt/chatters/.env`.
 
-For production web access, put a reverse proxy (Nginx or Caddy) in front of
-port 3001 with TLS.
+For production TLS, put Nginx (or Caddy) in front of port 80 and 3001 with
+your certificate. A minimal Nginx vhost for the web frontend would proxy to the
+client container; alternatively the `FRONTEND_PORT` variable lets you bind the
+client container directly to a different port if you prefer to terminate TLS
+outside the container stack.
 
 ---
 
 ## 8. Rollback
 
 Each push is also tagged with the commit SHA. To roll back, SSH into the VPS
-and change the image tag in `docker-compose.yml` to a previous SHA, then
+and change the image tags in `docker-compose.yml` to a previous SHA, then
 restart:
 
 ```bash
 cd /opt/chatters
-# edit docker-compose.yml: change image tag to ghcr.io/tomeng99/chatters:<old-sha>
+# edit docker-compose.yml: change server image to ghcr.io/tomeng99/chatters:<old-sha>
+#                           change client image to ghcr.io/tomeng99/chatters-client:<old-sha>
 podman compose up -d
 ```
 
@@ -270,6 +293,9 @@ podman compose up -d
 ```bash
 # Follow server logs
 podman compose logs -f server
+
+# Follow client (Nginx) logs
+podman compose logs -f client
 
 # Check running containers
 podman ps
