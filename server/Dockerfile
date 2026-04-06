@@ -1,10 +1,9 @@
 FROM node:20-alpine
-RUN addgroup -S deploy && adduser -S deploy -G deploy
 WORKDIR /app
-COPY --chown=deploy:deploy package*.json ./
+COPY --chown=node:node package*.json ./
 RUN npm install --production
-COPY --chown=deploy:deploy . .
-RUN mkdir -p /app/uploads && chown deploy:deploy /app/uploads
-USER deploy
+COPY --chown=node:node . .
+RUN mkdir -p /app/uploads && chown node:node /app/uploads
+USER node
 EXPOSE 3001
 CMD ["node", "src/index.js"]
