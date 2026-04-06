@@ -1,10 +1,10 @@
 FROM node:20-alpine
-RUN addgroup -S chatters && adduser -S chatters -G chatters
+RUN addgroup -S deploy && adduser -S deploy -G deploy
 WORKDIR /app
-COPY --chown=chatters:chatters package*.json ./
+COPY --chown=deploy:deploy package*.json ./
 RUN npm install --production
-COPY --chown=chatters:chatters . .
-RUN mkdir -p /app/uploads && chown chatters:chatters /app/uploads
-USER chatters
+COPY --chown=deploy:deploy . .
+RUN mkdir -p /app/uploads && chown deploy:deploy /app/uploads
+USER deploy
 EXPOSE 3001
 CMD ["node", "src/index.js"]
