@@ -188,6 +188,19 @@ volumes:
 Podman/Docker creates and manages this volume automatically — no manual setup
 is required on the VPS.
 
+### Why an entrypoint script is needed
+
+In rootless Podman, when a named volume is mounted over `/app/uploads` at
+runtime the volume's backing directory may appear as owned by `root` (uid 0)
+inside the container, even though the `Dockerfile` sets `chown node:node` on
+that path.  The image-layer ownership is hidden by the volume mount, so the
+`node` user gets `EACCES` the first time the app tries to write there.
+
+`docker-entrypoint.sh` solves this by running briefly as `root` on every
+container start, executing `chown node:node /app/uploads`, and then switching
+to the `node` user via `su-exec` before starting the application.  No manual
+VPS setup is required.
+
 > **Note:** If you previously ran the stack without this volume, existing
 > uploaded files inside the old container are not migrated automatically.
 > They are lost when the container is replaced. Future uploads will persist.
