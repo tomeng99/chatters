@@ -29,8 +29,9 @@ GitHub Actions
             └── podman image prune -f
 
 VPS containers (managed by Podman + Compose)
-    ├── chatters-server   (port 3001, memory ≤ 4 GB)
-    └── chatters-postgres (internal, port 5432)
+    ├── chatters-server   (port 3001, memory ≤ 3.5 GB)
+    └── chatters-postgres (internal, port 5432, memory ≤ 512 MB)
+                                     ← combined ≤ 4 GB
 ```
 
 ---
@@ -38,7 +39,7 @@ VPS containers (managed by Podman + Compose)
 ## 1. VPS Requirements
 
 - Ubuntu 24.04 LTS
-- 1+ CPU, 2+ GB RAM (the server container is capped at 4 GB)
+- 1+ CPU, 2+ GB RAM (server capped at 3.5 GB + postgres at 512 MB = 4 GB combined)
 - Podman 4.x or later
 - `podman-compose` plugin
 
@@ -178,13 +179,20 @@ Check/set visibility:
 
 ## 5. Resource Limits
 
-The `docker-compose.yml` already caps the server container:
+The `docker-compose.yml` splits the 4 GB budget across both containers:
 
 ```yaml
+# postgres service
 deploy:
   resources:
     limits:
-      memory: 4g
+      memory: 512m
+
+# server service
+deploy:
+  resources:
+    limits:
+      memory: 3584m   # 3.5 GB — combined with postgres = 4 GB
 ```
 
 On your 6-CPU / 12 GB RAM VPS this leaves plenty of headroom for the OS,
