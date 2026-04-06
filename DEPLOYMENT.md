@@ -87,12 +87,16 @@ openssl rand -hex 32
 
 ### 2c. Authenticate Podman to GHCR
 
+> **This step is registry authentication only.** It lets Podman pull the
+> pre-built image from GHCR. It has nothing to do with `JWT_SECRET` or any
+> application secret — those live in the `.env` file you created in step 2b.
+
 You need a GitHub Personal Access Token (PAT) with `read:packages` scope.
 
 Create one at: **GitHub → Settings → Developer settings → Personal access
 tokens → Fine-grained tokens** (or classic with `read:packages`).
 
-Log in once on the VPS:
+Log in once on the VPS **as the deploy user** (not root):
 
 ```bash
 echo '<YOUR_GHCR_PAT>' | podman login ghcr.io -u <your-github-username> --password-stdin
@@ -101,12 +105,16 @@ echo '<YOUR_GHCR_PAT>' | podman login ghcr.io -u <your-github-username> --passwo
 Podman stores this credential in `~/.config/containers/auth.json` for future
 pulls. The deploy workflow will also re-authenticate before each pull.
 
+> **Important:** Podman auth is per-user. Run `podman login` as the same user
+> that will run `podman compose` (e.g. `deploy`). If you log in as root, the
+> `deploy` user won't have those credentials.
+
 ### 2d. Verify the compose file works manually
 
 ```bash
 cd /opt/chatters
 podman compose pull                        # pull images once to verify auth
-JWT_SECRET=your-secret podman compose up -d
+podman compose up -d                       # JWT_SECRET and other vars come from .env
 curl http://localhost:3001/health          # should return {"status":"ok",...}
 podman compose down
 ```
