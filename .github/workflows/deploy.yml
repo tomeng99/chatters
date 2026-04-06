@@ -47,6 +47,19 @@ jobs:
           build-args: |
             EXPO_PUBLIC_API_URL=${{ secrets.EXPO_PUBLIC_API_URL }}
 
+      - name: Prune old GHCR images (keep 2 newest)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for pkg in chatters chatters-client; do
+            gh api "/user/packages/container/${pkg}/versions" --paginate \
+              --jq 'sort_by(.created_at) | reverse | .[2:][].id' | \
+            while read -r version_id; do
+              echo "Deleting version ${version_id} from ${pkg}"
+              gh api --method DELETE "/user/packages/container/${pkg}/versions/${version_id}" || true
+            done
+          done
+
       - name: Deploy on VPS via SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
