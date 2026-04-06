@@ -58,12 +58,23 @@ chatters/
 sudo apt update
 sudo apt install -y podman podman-compose
 
+# Create your local .env from the example (first time only)
+cp .env.example .env
+# Edit .env and set JWT_SECRET to a long random string.
+# To generate one:  openssl rand -hex 32
+
 # In project root: starts PostgreSQL + backend
-JWT_SECRET=dev-secret POSTGRES_PASSWORD=chatters podman-compose up -d
+podman-compose up -d
 
 # Health check
 curl http://localhost:3001/health
 ```
+
+> **Environment variables**: `podman-compose` (and `docker compose`) automatically
+> reads a `.env` file in the project root. Copy `.env.example` to `.env` and set
+> `JWT_SECRET` before starting the stack. You can also pass variables inline for
+> a quick smoke test: `JWT_SECRET=dev-secret podman-compose up -d`, but for any
+> persistent deployment always use the `.env` file so the secret survives restarts.
 
 ### 2. Frontend Setup
 
@@ -90,7 +101,23 @@ If your system uses the compose plugin command, replace `podman-compose` with `p
 
 ---
 
-## Environment Variables (server/.env)
+## Environment Variables
+
+### Compose deployment (`.env` — project root)
+
+When using `podman-compose` / `docker compose`, copy `.env.example` to `.env` in the
+**project root** (next to `docker-compose.yml`). Compose reads this file automatically.
+
+| Variable              | Default                             | Description                    |
+|-----------------------|-------------------------------------|--------------------------------|
+| `JWT_SECRET`          | *(required)*                        | JWT signing secret             |
+| `POSTGRES_PASSWORD`   | `chatters`                          | PostgreSQL password            |
+| `ALLOWED_ORIGINS`     | *(unset — localhost and RFC1918 network origins allowed)* | Comma-separated allowed origins|
+
+### Direct server execution (`server/.env`)
+
+When running the server directly with `node src/index.js` (outside compose),
+copy `server/.env.example` to `server/.env`.
 
 | Variable              | Default                             | Description                    |
 |-----------------------|-------------------------------------|--------------------------------|
