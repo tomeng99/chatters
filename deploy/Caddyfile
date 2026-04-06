@@ -1,0 +1,36 @@
+# Caddyfile for Chatters — HTTPS via Let's Encrypt
+#
+# Caddy automatically obtains and renews a TLS certificate for your domain.
+# Requirements:
+#   - Ports 80 and 443 must be open on the VPS firewall.
+#   - The domain's A record must already point to this VPS IP.
+#   - The Chatters containers must be running (docker-compose.yml).
+#
+# Replace chat.eng.software with your actual domain before use.
+
+chat.eng.software {
+    # REST API → backend container
+    handle /api/* {
+        reverse_proxy 127.0.0.1:3001
+    }
+
+    # WebSocket (Socket.IO) → backend container
+    handle /socket.io/* {
+        reverse_proxy 127.0.0.1:3001
+    }
+
+    # Uploaded files → backend container
+    handle /uploads/* {
+        reverse_proxy 127.0.0.1:3001
+    }
+
+    # Health check → backend container
+    handle /health {
+        reverse_proxy 127.0.0.1:3001
+    }
+
+    # All other requests → frontend (Nginx) container
+    handle {
+        reverse_proxy 127.0.0.1:8080
+    }
+}
