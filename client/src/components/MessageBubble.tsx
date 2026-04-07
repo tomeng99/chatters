@@ -4,6 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, typography, spacing, borderRadius } from '../theme';
 import EncryptionBadge from './EncryptionBadge';
 import { API_BASE } from '../config';
+import MediaViewer from './MediaViewer';
 
 interface MessageBubbleProps {
   content: string;
@@ -88,6 +89,7 @@ export default function MessageBubble({
   fileName,
 }: MessageBubbleProps) {
   const [imageError, setImageError] = useState(false);
+  const [viewerVisible, setViewerVisible] = useState(false);
   const emojiOnly = messageType === 'text' && isEmojiOnly(content);
   const containsLinks = messageType === 'text' && hasUrls(content);
 
@@ -96,37 +98,56 @@ export default function MessageBubble({
     return `${API_BASE}${url}`;
   }, []);
 
+  const openViewer = useCallback(() => setViewerVisible(true), []);
+  const closeViewer = useCallback(() => setViewerVisible(false), []);
+
   const renderContent = () => {
     if (messageType === 'image' && !imageError) {
       return (
-        <TouchableOpacity
-          activeOpacity={0.9}
-          onPress={() => Linking.openURL(resolveUrl(content))}
-        >
-          <Image
-            source={{ uri: resolveUrl(content) }}
-            style={styles.mediaImage}
-            resizeMode="cover"
-            onError={() => setImageError(true)}
+        <>
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={openViewer}
+          >
+            <Image
+              source={{ uri: resolveUrl(content) }}
+              style={styles.mediaImage}
+              resizeMode="cover"
+              onError={() => setImageError(true)}
+            />
+          </TouchableOpacity>
+          <MediaViewer
+            visible={viewerVisible}
+            uri={resolveUrl(content)}
+            mediaType="image"
+            onClose={closeViewer}
           />
-        </TouchableOpacity>
+        </>
       );
     }
 
     if (messageType === 'video') {
       return (
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => Linking.openURL(resolveUrl(content))}
-          style={styles.videoContainer}
-        >
-          <View style={styles.videoOverlay}>
-            <MaterialCommunityIcons name="play" size={22} color="#FFFFFF" />
-          </View>
-          <Text style={[styles.fileText, isSent ? styles.contentSent : styles.contentReceived]}>
-            {fileName || 'Video'}
-          </Text>
-        </TouchableOpacity>
+        <>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={openViewer}
+            style={styles.videoContainer}
+          >
+            <View style={styles.videoOverlay}>
+              <MaterialCommunityIcons name="play" size={22} color="#FFFFFF" />
+            </View>
+            <Text style={[styles.fileText, isSent ? styles.contentSent : styles.contentReceived]}>
+              {fileName || 'Video'}
+            </Text>
+          </TouchableOpacity>
+          <MediaViewer
+            visible={viewerVisible}
+            uri={resolveUrl(content)}
+            mediaType="video"
+            onClose={closeViewer}
+          />
+        </>
       );
     }
 
