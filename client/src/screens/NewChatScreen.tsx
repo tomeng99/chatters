@@ -15,6 +15,7 @@ import { AppStackParamList } from '../navigation/AppNavigator';
 import { useAuthStore } from '../store/authStore';
 import Avatar from '../components/Avatar';
 import Button from '../components/Button';
+import ScreenContainer from '../components/ScreenContainer';
 import { colors, typography, spacing, borderRadius } from '../theme';
 import { API_BASE } from '../config';
 
@@ -113,7 +114,7 @@ export default function NewChatScreen({ navigation }: Props) {
   };
 
   return (
-    <View style={styles.container}>
+    <ScreenContainer>
       {selected.length > 0 && (
         <View style={styles.selectedBar}>
           <FlatList
@@ -213,15 +214,11 @@ export default function NewChatScreen({ navigation }: Props) {
           />
         </View>
       )}
-    </View>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   selectedBar: {
     paddingVertical: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,

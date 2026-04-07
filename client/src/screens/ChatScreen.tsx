@@ -39,6 +39,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { colors, typography, spacing, borderRadius, shadows } from '../theme';
+import ScreenContainer from '../components/ScreenContainer';
 import { API_BASE } from '../config';
 
 type Props = {
@@ -552,9 +553,9 @@ export default function ChatScreen({ navigation, route }: Props) {
 
   if (loading) {
     return (
-      <View style={styles.centered}>
+      <ScreenContainer centered>
         <ActivityIndicator size="large" color={colors.primary} />
-      </View>
+      </ScreenContainer>
     );
   }
 
@@ -683,11 +684,6 @@ const styles = StyleSheet.create({
     ...(Platform.OS === 'web'
       ? { position: 'absolute' as const, top: 0, left: 0, right: 0, bottom: 0 }
       : {}),
-  },
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   headerTitle: {
     alignItems: 'center',
