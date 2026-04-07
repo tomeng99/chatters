@@ -42,8 +42,10 @@ export default function MediaViewer({ visible, uri, mediaType, onClose }: MediaV
     >
       <StatusBar hidden={Platform.OS !== 'web'} />
       <View style={styles.overlay}>
-        {/* Backdrop – tap to close */}
-        <Pressable style={StyleSheet.absoluteFill} onPress={handleBackdropPress} />
+        {/* Backdrop – tap to close (disabled for video to avoid intercepting player controls) */}
+        {mediaType !== 'video' && (
+          <Pressable style={StyleSheet.absoluteFill} onPress={handleBackdropPress} />
+        )}
 
         {/* Close button */}
         <TouchableOpacity
@@ -69,6 +71,7 @@ export default function MediaViewer({ visible, uri, mediaType, onClose }: MediaV
               style={styles.fullVideo}
               resizeMode={ResizeMode.CONTAIN}
               useNativeControls
+              shouldPlay
             />
           )}
         </View>

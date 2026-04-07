@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, Linking } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Video, ResizeMode } from 'expo-av';
 import { colors, typography, spacing, borderRadius } from '../theme';
 import EncryptionBadge from './EncryptionBadge';
 import { API_BASE } from '../config';
@@ -132,14 +133,18 @@ export default function MessageBubble({
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={openViewer}
-            style={styles.videoContainer}
           >
-            <View style={styles.videoOverlay}>
-              <MaterialCommunityIcons name="play" size={22} color="#FFFFFF" />
+            <View style={styles.videoPreview}>
+              <Video
+                source={{ uri: resolveUrl(content) }}
+                style={styles.videoThumbnail}
+                resizeMode={ResizeMode.COVER}
+                shouldPlay={false}
+              />
+              <View style={styles.videoPlayOverlay}>
+                <MaterialCommunityIcons name="play" size={36} color="#FFFFFF" />
+              </View>
             </View>
-            <Text style={[styles.fileText, isSent ? styles.contentSent : styles.contentReceived]}>
-              {fileName || 'Video'}
-            </Text>
           </TouchableOpacity>
           <MediaViewer
             visible={viewerVisible}
@@ -214,6 +219,7 @@ export default function MessageBubble({
           isCritical && styles.bubbleCritical,
           emojiOnly && styles.emojiBubble,
           messageType === 'image' && !imageError && styles.mediaBubble,
+          messageType === 'video' && styles.mediaBubble,
         ]}
       >
         {isCritical && (
@@ -337,18 +343,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  videoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
+  videoPreview: {
+    width: 220,
+    height: 220,
+    borderRadius: borderRadius.md,
+    overflow: 'hidden',
+    backgroundColor: '#000',
   },
-  videoOverlay: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+  videoThumbnail: {
+    width: '100%',
+    height: '100%',
+  },
+  videoPlayOverlay: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.3)',
   },
   fileContainer: {
     flexDirection: 'row',
