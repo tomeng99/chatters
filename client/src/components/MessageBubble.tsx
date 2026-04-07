@@ -154,22 +154,30 @@ export default function MessageBubble({
     if (messageType === 'video') {
       return (
         <>
+          {/* Hidden Video element used as ref for native fullscreen on iOS */}
+          {Platform.OS !== 'web' && (
+            <Video
+              ref={videoRef}
+              source={{ uri: resolveUrl(content) }}
+              style={styles.hiddenVideo}
+              resizeMode={ResizeMode.CONTAIN}
+              shouldPlay={false}
+              onFullscreenUpdate={handleFullscreenUpdate}
+            />
+          )}
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={Platform.OS === 'web' ? openViewer : handleNativeVideoPlay}
           >
             <View style={styles.videoPreview}>
-              <Video
-                ref={videoRef}
-                source={{ uri: resolveUrl(content) }}
-                style={styles.videoThumbnail}
-                resizeMode={ResizeMode.COVER}
-                shouldPlay={false}
-                onFullscreenUpdate={Platform.OS !== 'web' ? handleFullscreenUpdate : undefined}
-              />
               <View style={styles.videoPlayOverlay}>
-                <MaterialCommunityIcons name="play" size={36} color="#FFFFFF" />
+                <MaterialCommunityIcons name="play-circle" size={48} color="#FFFFFF" />
               </View>
+              {fileName ? (
+                <Text style={styles.videoFileName} numberOfLines={2}>
+                  {fileName}
+                </Text>
+              ) : null}
             </View>
           </TouchableOpacity>
           <MediaViewer
@@ -371,20 +379,29 @@ const styles = StyleSheet.create({
   },
   videoPreview: {
     width: 220,
-    height: 220,
+    height: 140,
     borderRadius: borderRadius.md,
     overflow: 'hidden',
-    backgroundColor: '#000',
+    backgroundColor: '#1a1a2e',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  videoThumbnail: {
-    width: '100%',
-    height: '100%',
+  hiddenVideo: {
+    width: 0,
+    height: 0,
+    position: 'absolute',
+    opacity: 0,
   },
   videoPlayOverlay: {
-    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  videoFileName: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: typography.fontSizeXS,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    textAlign: 'center',
   },
   fileContainer: {
     flexDirection: 'row',
