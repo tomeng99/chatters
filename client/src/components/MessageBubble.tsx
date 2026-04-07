@@ -1,7 +1,7 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Linking } from 'react-native';
+import React, { useState, useCallback, useRef } from 'react';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Linking, Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Video, ResizeMode } from 'expo-av';
+import { Video, ResizeMode, VideoFullscreenUpdate } from 'expo-av';
 import { colors, typography, spacing, borderRadius } from '../theme';
 import EncryptionBadge from './EncryptionBadge';
 import { API_BASE } from '../config';
@@ -102,6 +102,30 @@ export default function MessageBubble({
   const openViewer = useCallback(() => setViewerVisible(true), []);
   const closeViewer = useCallback(() => setViewerVisible(false), []);
 
+  const videoRef = useRef<Video>(null);
+
+  const handleNativeVideoPlay = useCallback(async () => {
+    if (videoRef.current) {
+      try {
+        await videoRef.current.presentFullscreenPlayer();
+        videoRef.current.playAsync().catch(() => {});
+      } catch {
+        // presentFullscreenPlayer is not supported on Android; fall back to modal
+        openViewer();
+      }
+    }
+  }, [openViewer]);
+
+  const handleFullscreenUpdate = useCallback(
+    (event: { fullscreenUpdate: VideoFullscreenUpdate }) => {
+      if (event.fullscreenUpdate === VideoFullscreenUpdate.PLAYER_DID_DISMISS) {
+        videoRef.current?.pauseAsync().catch(() => {});
+        videoRef.current?.setPositionAsync(0).catch(() => {});
+      }
+    },
+    [],
+  );
+
   const renderContent = () => {
     if (messageType === 'image' && !imageError) {
       return (
@@ -132,14 +156,16 @@ export default function MessageBubble({
         <>
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={openViewer}
+            onPress={Platform.OS === 'web' ? openViewer : handleNativeVideoPlay}
           >
             <View style={styles.videoPreview}>
               <Video
+                ref={videoRef}
                 source={{ uri: resolveUrl(content) }}
                 style={styles.videoThumbnail}
                 resizeMode={ResizeMode.COVER}
                 shouldPlay={false}
+                onFullscreenUpdate={Platform.OS !== 'web' ? handleFullscreenUpdate : undefined}
               />
               <View style={styles.videoPlayOverlay}>
                 <MaterialCommunityIcons name="play" size={36} color="#FFFFFF" />
