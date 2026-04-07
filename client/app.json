@@ -4,8 +4,17 @@
     "slug": "chatters",
     "version": "1.0.0",
     "platforms": ["ios", "android", "web"],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "softwareKeyboardLayoutMode": "pan"
+    },
     "web": {
-      "bundler": "metro"
+      "bundler": "metro",
+      "meta": {
+        "viewport": "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+      }
     }
   }
 }

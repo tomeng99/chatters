@@ -7,6 +7,7 @@ import {
   StyleSheet,
   ViewStyle,
   TextInputProps,
+  Platform,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, typography, spacing, borderRadius } from '../theme';
@@ -103,7 +104,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     height: 52,
-    fontSize: typography.fontSizeMD,
+    fontSize: Platform.OS === 'ios' ? typography.fontSizeInput : typography.fontSizeMD,
     color: colors.text,
   },
   eyeButton: {

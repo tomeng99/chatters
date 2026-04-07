@@ -3,6 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../store/authStore';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
@@ -72,6 +73,7 @@ function AuthNavigator(): React.JSX.Element {
 }
 
 function HomeTabs(): React.JSX.Element {
+  const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
       screenOptions={{
@@ -84,9 +86,9 @@ function HomeTabs(): React.JSX.Element {
           backgroundColor: colors.surface,
           borderTopWidth: StyleSheet.hairlineWidth,
           borderTopColor: colors.border,
-          paddingBottom: spacing.xs,
+          paddingBottom: insets.bottom > 0 ? insets.bottom : spacing.xs,
           paddingTop: spacing.xs,
-          height: 56,
+          height: 56 + (insets.bottom > 0 ? insets.bottom : 0),
         },
         tabBarLabelStyle: {
           fontSize: typography.fontSizeXS,

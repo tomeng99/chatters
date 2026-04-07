@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, StyleSheet, ViewStyle } from 'react-native';
+import { StyleSheet, ViewStyle } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../theme';
 
 interface ScreenContainerProps {
@@ -10,9 +11,9 @@ interface ScreenContainerProps {
 
 export default function ScreenContainer({ children, style, centered }: ScreenContainerProps) {
   return (
-    <View style={[styles.container, centered && styles.centered, style]}>
+    <SafeAreaView style={[styles.container, centered && styles.centered, style]}>
       {children}
-    </View>
+    </SafeAreaView>
   );
 }
 
