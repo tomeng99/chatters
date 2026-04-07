@@ -791,7 +791,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    fontSize: Platform.OS === 'ios' ? typography.fontSizeInput : typography.fontSizeMD,
+    fontSize: typography.fontSizeInput,
     color: colors.text,
   },
   sendButton: {

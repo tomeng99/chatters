@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   groupNameInput: {
-    fontSize: typography.fontSizeMD,
+    fontSize: typography.fontSizeInput,
     color: colors.text,
     padding: spacing.sm + 2,
     backgroundColor: colors.surfaceSecondary,
@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     height: 40,
-    fontSize: typography.fontSizeMD,
+    fontSize: typography.fontSizeInput,
     color: colors.text,
   },
   list: {
