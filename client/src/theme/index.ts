@@ -75,7 +75,7 @@ export const paperTheme = {
   colors: {
     ...MD3LightTheme.colors,
     primary: colors.primary,
-    onPrimary: '#FFFFFF',
+    onPrimary: colors.onPrimary,
     primaryContainer: colors.primaryLight + '20',
     secondary: colors.textSecondary,
     background: colors.background,

@@ -10,18 +10,13 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { RadioButton } from 'react-native-paper';
-import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import { TabParamList } from '../navigation/AppNavigator';
 import { useAuthStore } from '../store/authStore';
 import { requestNotificationPermission, getNotificationPermission } from '../services/notificationService';
 import ScreenContainer from '../components/ScreenContainer';
 import AppText from '../components/AppText';
-import Divider from '../components/Divider';
 import Row from '../components/Row';
 import { colors, typography, spacing, borderRadius } from '../theme';
 import { API_BASE } from '../config';
-
-type Props = { navigation: BottomTabNavigationProp<TabParamList, 'SettingsTab'> };
 
 type NotificationPreference = 'all' | 'tags_and_critical' | 'critical_only' | 'none';
 
@@ -32,7 +27,7 @@ const NOTIFICATION_OPTIONS: { value: NotificationPreference; label: string; desc
   { value: 'none', label: 'None', description: 'No notifications' },
 ];
 
-export default function SettingsScreen({ navigation }: Props): React.JSX.Element {
+export default function SettingsScreen(): React.JSX.Element {
   const { token, user } = useAuthStore();
   const [preference, setPreference] = useState<NotificationPreference>('all');
   const [loading, setLoading] = useState(true);
