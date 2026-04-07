@@ -113,6 +113,8 @@ export default function MessageBubble({
         // presentFullscreenPlayer is not supported on Android; fall back to modal
         openViewer();
       }
+    } else {
+      openViewer();
     }
   }, [openViewer]);
 
@@ -155,7 +157,7 @@ export default function MessageBubble({
       return (
         <>
           {/* Hidden Video element used as ref for native fullscreen on iOS */}
-          {Platform.OS !== 'web' && (
+          {Platform.OS === 'ios' && (
             <Video
               ref={videoRef}
               source={{ uri: resolveUrl(content) }}
