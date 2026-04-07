@@ -10,14 +10,18 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { RadioButton } from 'react-native-paper';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { AppStackParamList } from '../navigation/AppNavigator';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { TabParamList } from '../navigation/AppNavigator';
 import { useAuthStore } from '../store/authStore';
 import { requestNotificationPermission, getNotificationPermission } from '../services/notificationService';
+import ScreenContainer from '../components/ScreenContainer';
+import AppText from '../components/AppText';
+import Divider from '../components/Divider';
+import Row from '../components/Row';
 import { colors, typography, spacing, borderRadius } from '../theme';
 import { API_BASE } from '../config';
 
-type Props = { navigation: StackNavigationProp<AppStackParamList, 'Settings'> };
+type Props = { navigation: BottomTabNavigationProp<TabParamList, 'SettingsTab'> };
 
 type NotificationPreference = 'all' | 'tags_and_critical' | 'critical_only' | 'none';
 
@@ -28,14 +32,14 @@ const NOTIFICATION_OPTIONS: { value: NotificationPreference; label: string; desc
   { value: 'none', label: 'None', description: 'No notifications' },
 ];
 
-export default function SettingsScreen({ navigation }: Props) {
+export default function SettingsScreen({ navigation }: Props): React.JSX.Element {
   const { token, user } = useAuthStore();
   const [preference, setPreference] = useState<NotificationPreference>('all');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [browserPermission, setBrowserPermission] = useState<string>('default');
 
-  const fetchSettings = useCallback(async () => {
+  const fetchSettings = useCallback(async (): Promise<void> => {
     setLoading(true);
     try {
       const res = await fetch(`${API_BASE}/api/users/settings`, {
@@ -58,13 +62,13 @@ export default function SettingsScreen({ navigation }: Props) {
     getNotificationPermission().then(setBrowserPermission);
   }, []);
 
-  const handleEnableBrowserNotifications = async () => {
+  const handleEnableBrowserNotifications = async (): Promise<void> => {
     const granted = await requestNotificationPermission();
     const perm = await getNotificationPermission();
     setBrowserPermission(granted ? 'granted' : perm);
   };
 
-  const updatePreference = async (value: NotificationPreference) => {
+  const updatePreference = async (value: NotificationPreference): Promise<void> => {
     const previousValue = preference;
     setSaving(true);
     setPreference(value);
@@ -89,9 +93,9 @@ export default function SettingsScreen({ navigation }: Props) {
 
   if (loading) {
     return (
-      <View style={styles.centered}>
+      <ScreenContainer centered>
         <ActivityIndicator size="large" color={colors.primary} />
-      </View>
+      </ScreenContainer>
     );
   }
 
@@ -103,21 +107,21 @@ export default function SettingsScreen({ navigation }: Props) {
             {user?.username?.charAt(0).toUpperCase() || '?'}
           </Text>
         </View>
-        <Text style={styles.username}>{user?.username}</Text>
-        <View style={styles.encryptedBadge}>
+        <AppText variant="title">{user?.username}</AppText>
+        <Row style={styles.encryptedBadge}>
           <MaterialCommunityIcons name="shield-check" size={14} color={colors.success} />
-          <Text style={styles.encryptedText}>End-to-end encrypted</Text>
-        </View>
+          <AppText variant="caption" color={colors.success}>End-to-end encrypted</AppText>
+        </Row>
       </View>
 
       <View style={styles.section}>
-        <View style={styles.sectionHeader}>
+        <Row style={styles.sectionHeader}>
           <MaterialCommunityIcons name="bell-outline" size={20} color={colors.text} />
-          <Text style={styles.sectionTitle}>Notifications</Text>
-        </View>
-        <Text style={styles.sectionDescription}>
+          <AppText variant="body" style={styles.sectionTitle}>Notifications</AppText>
+        </Row>
+        <AppText variant="caption" style={styles.sectionDescription}>
           Choose which messages trigger notifications
-        </Text>
+        </AppText>
         {NOTIFICATION_OPTIONS.map((option) => (
           <Pressable
             key={option.value}
@@ -145,50 +149,50 @@ export default function SettingsScreen({ navigation }: Props) {
               >
                 {option.label}
               </Text>
-              <Text style={styles.optionDescription}>{option.description}</Text>
+              <AppText variant="label">{option.description}</AppText>
             </View>
           </Pressable>
         ))}
         {(Platform.OS === 'web' || Platform.OS === 'ios' || Platform.OS === 'android') && (
           <View style={styles.browserNotifSection}>
-            <Text style={styles.browserNotifTitle}>
+            <AppText variant="body" style={styles.browserNotifTitle}>
               {Platform.OS === 'web' ? 'Browser Notifications' : 'Push Notifications'}
-            </Text>
+            </AppText>
             {browserPermission === 'granted' ? (
-              <View style={styles.browserNotifStatus}>
+              <Row style={styles.browserNotifStatus}>
                 <MaterialCommunityIcons name="check-circle" size={18} color={colors.success} />
-                <Text style={styles.browserNotifEnabled}>
+                <AppText variant="caption" color={colors.success}>
                   {Platform.OS === 'web' ? 'Browser notifications enabled' : 'Notifications enabled'}
-                </Text>
-              </View>
+                </AppText>
+              </Row>
             ) : browserPermission === 'denied' ? (
-              <View style={styles.browserNotifStatus}>
+              <Row style={styles.browserNotifStatus}>
                 <MaterialCommunityIcons name="close-circle" size={18} color={colors.error} />
-                <Text style={styles.browserNotifDenied}>
+                <AppText variant="caption" style={{ flex: 1 }}>
                   {Platform.OS === 'web'
                     ? 'Browser notifications blocked. Please enable them in your browser settings.'
                     : 'Notifications blocked. Please enable them in your device settings.'}
-                </Text>
-              </View>
+                </AppText>
+              </Row>
             ) : browserPermission === 'ios_web' ? (
-              <View style={styles.browserNotifInfoBox}>
+              <Row style={styles.browserNotifInfoBox}>
                 <MaterialCommunityIcons name="cellphone" size={18} color={colors.textSecondary} />
                 <View style={styles.iosNotifTextContainer}>
-                  <Text style={styles.browserNotifDenied}>
+                  <AppText variant="caption">
                     Safari on iOS does not support notifications for regular websites.
-                  </Text>
-                  <Text style={[styles.browserNotifDenied, { marginTop: spacing.xs }]}>
+                  </AppText>
+                  <AppText variant="caption" style={{ marginTop: spacing.xs }}>
                     To receive notifications, add this app to your Home Screen: tap the Share button in Safari, then "Add to Home Screen".
-                  </Text>
+                  </AppText>
                 </View>
-              </View>
+              </Row>
             ) : browserPermission === 'unsupported' ? (
-              <View style={styles.browserNotifStatus}>
+              <Row style={styles.browserNotifStatus}>
                 <MaterialCommunityIcons name="bell-off-outline" size={18} color={colors.textTertiary} />
-                <Text style={styles.browserNotifDenied}>
+                <AppText variant="caption">
                   Notifications are not supported on this browser.
-                </Text>
-              </View>
+                </AppText>
+              </Row>
             ) : (
               <Pressable
                 style={({ pressed }) => [styles.enableButton, pressed && styles.enableButtonPressed]}
@@ -212,11 +216,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   profileSection: {
     alignItems: 'center',
     paddingVertical: spacing.xl,
@@ -237,39 +236,22 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeightBold,
     color: '#FFFFFF',
   },
-  username: {
-    fontSize: typography.fontSizeXL,
-    fontWeight: typography.fontWeightSemiBold,
-    color: colors.text,
-    marginBottom: spacing.xs,
-  },
   encryptedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: spacing.xs,
-  },
-  encryptedText: {
-    fontSize: typography.fontSizeSM,
-    color: colors.success,
+    marginTop: spacing.xs,
   },
   section: {
     paddingHorizontal: spacing.md,
     paddingTop: spacing.lg,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: spacing.sm,
     marginBottom: spacing.xs,
   },
   sectionTitle: {
-    fontSize: typography.fontSizeLG,
     fontWeight: typography.fontWeightSemiBold,
-    color: colors.text,
   },
   sectionDescription: {
-    fontSize: typography.fontSizeSM,
-    color: colors.textSecondary,
     marginBottom: spacing.md,
   },
   optionItem: {
@@ -301,11 +283,6 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: typography.fontWeightSemiBold,
   },
-  optionDescription: {
-    fontSize: typography.fontSizeXS,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
   browserNotifSection: {
     marginTop: spacing.md,
     paddingTop: spacing.md,
@@ -313,34 +290,20 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   browserNotifTitle: {
-    fontSize: typography.fontSizeSM,
     fontWeight: typography.fontWeightSemiBold,
-    color: colors.text,
     marginBottom: spacing.sm,
   },
   browserNotifStatus: {
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingVertical: spacing.sm,
     gap: spacing.sm,
   },
   browserNotifInfoBox: {
-    flexDirection: 'row',
     alignItems: 'flex-start',
     paddingVertical: spacing.sm,
     gap: spacing.sm,
   },
   iosNotifTextContainer: {
     flex: 1,
-  },
-  browserNotifEnabled: {
-    fontSize: typography.fontSizeSM,
-    color: colors.success,
-    flex: 1,
-  },
-  browserNotifDenied: {
-    fontSize: typography.fontSizeSM,
-    color: colors.textSecondary,
   },
   enableButton: {
     flexDirection: 'row',

@@ -1,9 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, ViewStyle } from 'react-native';
-import { colors, typography, spacing } from '../theme';
+import { View, StyleSheet, ViewStyle } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import AppText from './AppText';
+import { colors, spacing } from '../theme';
 
 interface EmptyStateProps {
-  icon: string;
+  icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
   title: string;
   subtitle?: string;
   style?: ViewStyle;
@@ -12,9 +14,9 @@ interface EmptyStateProps {
 export default function EmptyState({ icon, title, subtitle, style }: EmptyStateProps) {
   return (
     <View style={[styles.container, style]}>
-      <Text style={styles.icon}>{icon}</Text>
-      <Text style={styles.title}>{title}</Text>
-      {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+      <MaterialCommunityIcons name={icon} size={64} color={colors.border} />
+      <AppText variant="title" style={styles.title}>{title}</AppText>
+      {subtitle ? <AppText variant="body" color={colors.textSecondary} style={styles.subtitle}>{subtitle}</AppText> : null}
     </View>
   );
 }
@@ -24,20 +26,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: spacing.xxl * 2,
     paddingHorizontal: spacing.xl,
-  },
-  icon: {
-    fontSize: 64,
-    marginBottom: spacing.md,
+    gap: spacing.sm,
   },
   title: {
-    fontSize: typography.fontSizeXL,
-    fontWeight: typography.fontWeightSemiBold,
-    color: colors.text,
-    marginBottom: spacing.sm,
+    marginTop: spacing.sm,
   },
   subtitle: {
-    fontSize: typography.fontSizeMD,
-    color: colors.textSecondary,
     textAlign: 'center',
   },
 });

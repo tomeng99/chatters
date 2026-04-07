@@ -1,8 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  View,
   FlatList,
-  Text,
   StyleSheet,
   Pressable,
   ActivityIndicator,
@@ -12,12 +10,15 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { FAB } from 'react-native-paper';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { useFocusEffect } from '@react-navigation/native';
-import { AppStackParamList } from '../navigation/AppNavigator';
+import { useFocusEffect, CompositeNavigationProp } from '@react-navigation/native';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { AppStackParamList, TabParamList } from '../navigation/AppNavigator';
 import { useAuthStore } from '../store/authStore';
 import { socketService } from '../services/socketService';
 import { requestNotificationPermission, showNotification } from '../services/notificationService';
 import ConversationItem from '../components/ConversationItem';
+import ScreenContainer from '../components/ScreenContainer';
+import EmptyState from '../components/EmptyState';
 import {
   decryptMessage,
   decryptGroupMessage,
@@ -26,10 +27,15 @@ import {
 } from '../utils/encryption';
 import { decodeBase64 } from 'tweetnacl-util';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { colors, typography, spacing, borderRadius, shadows } from '../theme';
+import { colors, spacing } from '../theme';
 import { API_BASE } from '../config';
 
-type Props = { navigation: StackNavigationProp<AppStackParamList, 'Conversations'> };
+type NavigationProp = CompositeNavigationProp<
+  BottomTabNavigationProp<TabParamList, 'ConversationsTab'>,
+  StackNavigationProp<AppStackParamList>
+>;
+
+type Props = { navigation: NavigationProp };
 
 interface Conversation {
   id: string;
@@ -46,7 +52,7 @@ interface Conversation {
   } | null;
 }
 
-export default function ConversationsScreen({ navigation }: Props) {
+export default function ConversationsScreen({ navigation }: Props): React.JSX.Element {
   const { token, user, logout, keyPair } = useAuthStore();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [decryptedPreviews, setDecryptedPreviews] = useState<Record<string, string>>({});
@@ -55,17 +61,6 @@ export default function ConversationsScreen({ navigation }: Props) {
 
   useEffect(() => {
     navigation.setOptions({
-      headerLeft: () => (
-        <Pressable
-          onPress={() => navigation.navigate('Settings')}
-          style={{ marginLeft: spacing.md }}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel="Open settings"
-        >
-          <MaterialCommunityIcons name="cog-outline" size={24} color={colors.text} />
-        </Pressable>
-      ),
       headerRight: () => (
         <Pressable
           onPress={logout}
@@ -222,14 +217,14 @@ export default function ConversationsScreen({ navigation }: Props) {
 
   if (loading) {
     return (
-      <View style={styles.centered}>
+      <ScreenContainer centered>
         <ActivityIndicator size="large" color={colors.primary} />
-      </View>
+      </ScreenContainer>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <ScreenContainer>
       <FlatList
         data={conversations}
         keyExtractor={(item) => item.id}
@@ -250,11 +245,11 @@ export default function ConversationsScreen({ navigation }: Props) {
           />
         )}
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <MaterialCommunityIcons name="chat-outline" size={64} color={colors.border} />
-            <Text style={styles.emptyTitle}>No conversations yet</Text>
-            <Text style={styles.emptySubtitle}>Start chatting by tapping the button below</Text>
-          </View>
+          <EmptyState
+            icon="chat-outline"
+            title="No conversations yet"
+            subtitle="Start chatting by tapping the button below"
+          />
         }
         refreshControl={
           <RefreshControl
@@ -273,42 +268,16 @@ export default function ConversationsScreen({ navigation }: Props) {
         onPress={() => navigation.navigate('NewChat')}
         color={colors.onPrimary}
       />
-    </View>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  empty: {
-    alignItems: 'center',
-    paddingTop: spacing.xxl * 2,
-    paddingHorizontal: spacing.xl,
-    gap: spacing.sm,
-  },
-  emptyTitle: {
-    fontSize: typography.fontSizeXL,
-    fontWeight: typography.fontWeightSemiBold,
-    color: colors.text,
-    marginTop: spacing.sm,
-  },
-  emptySubtitle: {
-    fontSize: typography.fontSizeMD,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
   fab: {
     position: 'absolute',
     bottom: spacing.xl,
     right: spacing.lg,
     backgroundColor: colors.primary,
-    borderRadius: borderRadius.lg,
+    borderRadius: 20,
   },
 });
