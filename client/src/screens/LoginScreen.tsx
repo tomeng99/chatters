@@ -7,6 +7,7 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { AuthStackParamList } from '../navigation/AppNavigator';
@@ -40,14 +41,15 @@ export default function LoginScreen({ navigation }: Props): React.JSX.Element {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView
-        contentContainerStyle={styles.container}
-        keyboardShouldPersistTaps="handled"
+    <SafeAreaView style={styles.flex}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
+        <ScrollView
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+        >
         <View style={styles.header}>
           <View style={styles.logoContainer}>
             <MaterialCommunityIcons name="chat-processing" size={40} color="#FFFFFF" />
@@ -105,8 +107,9 @@ export default function LoginScreen({ navigation }: Props): React.JSX.Element {
           <MaterialCommunityIcons name="shield-lock-outline" size={16} color={colors.textTertiary} />
           <AppText variant="caption" color={colors.textTertiary}>End-to-end encrypted by default</AppText>
         </Row>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 

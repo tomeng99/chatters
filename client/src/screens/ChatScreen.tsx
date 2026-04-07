@@ -14,6 +14,7 @@ import {
   NativeScrollEvent,
   Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
@@ -56,6 +57,7 @@ type MessageType = 'text' | 'image' | 'video' | 'file';
 export default function ChatScreen({ navigation, route }: Props) {
   const { conversationId, conversationName, isGroup, members } = route.params;
   const { token, user, keyPair } = useAuthStore();
+  const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(true);
@@ -607,7 +609,7 @@ export default function ChatScreen({ navigation, route }: Props) {
         />
       </View>
 
-      <View style={styles.inputBarContainer}>
+      <View style={[styles.inputBarContainer, { paddingBottom: insets.bottom }]}>
         {showAttachMenu && (
           <View style={styles.attachMenu}>
             <Pressable style={({ pressed }) => [styles.attachOption, pressed && styles.attachOptionPressed]} onPress={() => { setShowAttachMenu(false); handlePickImage(); }}>
@@ -789,7 +791,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    fontSize: typography.fontSizeMD,
+    fontSize: typography.fontSizeInput,
     color: colors.text,
   },
   sendButton: {

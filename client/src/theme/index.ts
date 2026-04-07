@@ -30,6 +30,7 @@ export const typography = {
   fontSizeLG: 17,
   fontSizeXL: 20,
   fontSizeXXL: 28,
+  fontSizeInput: 16, // Minimum font size to prevent mobile browser auto-zoom on input focus
   fontWeightRegular: '400' as const,
   fontWeightMedium: '500' as const,
   fontWeightSemiBold: '600' as const,

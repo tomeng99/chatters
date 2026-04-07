@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     height: 52,
-    fontSize: typography.fontSizeMD,
+    fontSize: typography.fontSizeInput,
     color: colors.text,
   },
   eyeButton: {
