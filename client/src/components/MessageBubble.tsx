@@ -1,7 +1,7 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Linking } from 'react-native';
+import React, { useState, useCallback, useRef } from 'react';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Linking, Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Video, ResizeMode } from 'expo-av';
+import { Video, ResizeMode, VideoFullscreenUpdate } from 'expo-av';
 import { colors, typography, spacing, borderRadius } from '../theme';
 import EncryptionBadge from './EncryptionBadge';
 import { API_BASE } from '../config';
@@ -102,6 +102,32 @@ export default function MessageBubble({
   const openViewer = useCallback(() => setViewerVisible(true), []);
   const closeViewer = useCallback(() => setViewerVisible(false), []);
 
+  const videoRef = useRef<Video>(null);
+
+  const handleNativeVideoPlay = useCallback(async () => {
+    if (videoRef.current) {
+      try {
+        await videoRef.current.presentFullscreenPlayer();
+        videoRef.current.playAsync().catch(() => {});
+      } catch {
+        // presentFullscreenPlayer is not supported on Android; fall back to modal
+        openViewer();
+      }
+    } else {
+      openViewer();
+    }
+  }, [openViewer]);
+
+  const handleFullscreenUpdate = useCallback(
+    (event: { fullscreenUpdate: VideoFullscreenUpdate }) => {
+      if (event.fullscreenUpdate === VideoFullscreenUpdate.PLAYER_DID_DISMISS) {
+        videoRef.current?.pauseAsync().catch(() => {});
+        videoRef.current?.setPositionAsync(0).catch(() => {});
+      }
+    },
+    [],
+  );
+
   const renderContent = () => {
     if (messageType === 'image' && !imageError) {
       return (
@@ -130,20 +156,30 @@ export default function MessageBubble({
     if (messageType === 'video') {
       return (
         <>
+          {/* Hidden Video element used as ref for native fullscreen on iOS */}
+          {Platform.OS === 'ios' && (
+            <Video
+              ref={videoRef}
+              source={{ uri: resolveUrl(content) }}
+              style={styles.hiddenVideo}
+              resizeMode={ResizeMode.CONTAIN}
+              shouldPlay={false}
+              onFullscreenUpdate={handleFullscreenUpdate}
+            />
+          )}
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={openViewer}
+            onPress={Platform.OS === 'web' ? openViewer : handleNativeVideoPlay}
           >
             <View style={styles.videoPreview}>
-              <Video
-                source={{ uri: resolveUrl(content) }}
-                style={styles.videoThumbnail}
-                resizeMode={ResizeMode.COVER}
-                shouldPlay={false}
-              />
               <View style={styles.videoPlayOverlay}>
-                <MaterialCommunityIcons name="play" size={36} color="#FFFFFF" />
+                <MaterialCommunityIcons name="play-circle" size={48} color="#FFFFFF" />
               </View>
+              {fileName ? (
+                <Text style={styles.videoFileName} numberOfLines={2}>
+                  {fileName}
+                </Text>
+              ) : null}
             </View>
           </TouchableOpacity>
           <MediaViewer
@@ -345,20 +381,29 @@ const styles = StyleSheet.create({
   },
   videoPreview: {
     width: 220,
-    height: 220,
+    height: 140,
     borderRadius: borderRadius.md,
     overflow: 'hidden',
-    backgroundColor: '#000',
+    backgroundColor: '#1a1a2e',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  videoThumbnail: {
-    width: '100%',
-    height: '100%',
+  hiddenVideo: {
+    width: 0,
+    height: 0,
+    position: 'absolute',
+    opacity: 0,
   },
   videoPlayOverlay: {
-    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  videoFileName: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: typography.fontSizeXS,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    textAlign: 'center',
   },
   fileContainer: {
     flexDirection: 'row',

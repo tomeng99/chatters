@@ -42,8 +42,8 @@ export default function MediaViewer({ visible, uri, mediaType, onClose }: MediaV
     >
       <StatusBar hidden={Platform.OS !== 'web'} />
       <View style={styles.overlay}>
-        {/* Backdrop – tap to close (disabled for video to avoid intercepting player controls) */}
-        {mediaType !== 'video' && (
+        {/* Backdrop – tap to close (disabled for video on native to avoid intercepting player controls) */}
+        {(mediaType !== 'video' || Platform.OS === 'web') && (
           <Pressable style={StyleSheet.absoluteFill} onPress={handleBackdropPress} />
         )}
 
@@ -110,6 +110,6 @@ const styles = StyleSheet.create({
   },
   fullVideo: {
     width: '100%',
-    height: '80%',
+    height: '100%',
   },
 });
