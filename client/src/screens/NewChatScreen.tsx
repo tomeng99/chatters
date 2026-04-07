@@ -3,12 +3,13 @@ import {
   View,
   FlatList,
   Text,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   ActivityIndicator,
   TextInput,
   Alert,
 } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { AppStackParamList } from '../navigation/AppNavigator';
 import { useAuthStore } from '../store/authStore';
@@ -121,14 +122,14 @@ export default function NewChatScreen({ navigation }: Props) {
             data={selected}
             keyExtractor={(u) => u.id}
             renderItem={({ item }) => (
-              <TouchableOpacity
+              <Pressable
                 style={styles.selectedChip}
                 onPress={() => toggleSelect(item)}
               >
                 <Avatar username={item.username} size={28} />
                 <Text style={styles.chipName}>{item.username}</Text>
-                <Text style={styles.chipRemove}>✕</Text>
-              </TouchableOpacity>
+                <MaterialCommunityIcons name="close" size={14} color={colors.textSecondary} />
+              </Pressable>
             )}
             contentContainerStyle={{ gap: spacing.sm, paddingHorizontal: spacing.md }}
             showsHorizontalScrollIndicator={false}
@@ -149,6 +150,7 @@ export default function NewChatScreen({ navigation }: Props) {
       )}
 
       <View style={styles.searchBar}>
+        <MaterialCommunityIcons name="magnify" size={20} color={colors.textTertiary} />
         <TextInput
           style={styles.searchInput}
           placeholder="Search by username..."
@@ -167,22 +169,24 @@ export default function NewChatScreen({ navigation }: Props) {
         renderItem={({ item }) => {
           const isSelected = selected.some((s) => s.id === item.id);
           return (
-            <TouchableOpacity
-              style={[styles.userRow, isSelected && styles.userRowSelected]}
+            <Pressable
+              style={({ pressed }) => [styles.userRow, isSelected && styles.userRowSelected, pressed && styles.userRowPressed]}
               onPress={() => toggleSelect(item)}
-              activeOpacity={0.7}
             >
               <Avatar username={item.username} size={44} />
               <View style={styles.userInfo}>
                 <Text style={styles.username}>{item.username}</Text>
                 {item.publicKey && (
-                  <Text style={styles.encrypted}>🔒 E2E encrypted</Text>
+                  <View style={styles.encryptedRow}>
+                    <MaterialCommunityIcons name="lock" size={11} color={colors.success} />
+                    <Text style={styles.encrypted}>E2E encrypted</Text>
+                  </View>
                 )}
               </View>
               <View style={[styles.checkCircle, isSelected && styles.checkCircleSelected]}>
-                {isSelected && <Text style={styles.checkMark}>✓</Text>}
+                {isSelected && <MaterialCommunityIcons name="check" size={14} color="#FFFFFF" />}
               </View>
-            </TouchableOpacity>
+            </Pressable>
           );
         }}
         ListEmptyComponent={
@@ -219,27 +223,23 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceSecondary,
   },
   selectedChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
     borderRadius: borderRadius.round,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 5,
     borderWidth: 1,
     borderColor: colors.border,
-    gap: 4,
+    gap: 6,
   },
   chipName: {
     fontSize: typography.fontSizeSM,
     color: colors.text,
     fontWeight: typography.fontWeightMedium,
-  },
-  chipRemove: {
-    fontSize: 11,
-    color: colors.textSecondary,
   },
   groupNameRow: {
     paddingHorizontal: spacing.md,
@@ -250,8 +250,8 @@ const styles = StyleSheet.create({
   groupNameInput: {
     fontSize: typography.fontSizeMD,
     color: colors.text,
-    padding: spacing.sm,
-    backgroundColor: colors.surface,
+    padding: spacing.sm + 2,
+    backgroundColor: colors.surfaceSecondary,
     borderRadius: borderRadius.md,
   },
   searchBar: {
@@ -262,15 +262,13 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
     gap: spacing.sm,
+    backgroundColor: colors.surfaceSecondary,
   },
   searchInput: {
     flex: 1,
     height: 40,
     fontSize: typography.fontSizeMD,
     color: colors.text,
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    paddingHorizontal: spacing.md,
   },
   list: {
     paddingBottom: spacing.xl,
@@ -279,11 +277,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
+    paddingVertical: spacing.md - 2,
     gap: spacing.md,
   },
   userRowSelected: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.primary + '08',
+  },
+  userRowPressed: {
+    backgroundColor: colors.surfaceSecondary,
   },
   userInfo: {
     flex: 1,
@@ -293,10 +294,15 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeightMedium,
     color: colors.text,
   },
+  encryptedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    marginTop: 2,
+  },
   encrypted: {
     fontSize: typography.fontSizeXS,
     color: colors.success,
-    marginTop: 2,
   },
   checkCircle: {
     width: 24,
@@ -311,11 +317,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
-  checkMark: {
-    color: colors.background,
-    fontSize: 13,
-    fontWeight: typography.fontWeightBold,
-  },
   empty: {
     padding: spacing.xl,
     alignItems: 'center',
@@ -329,5 +330,6 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
+    backgroundColor: colors.surface,
   },
 });

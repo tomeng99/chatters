@@ -1,17 +1,18 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  View,
   FlatList,
-  Text,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   ActivityIndicator,
   RefreshControl,
   Platform,
 } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { FAB } from 'react-native-paper';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { useFocusEffect } from '@react-navigation/native';
-import { AppStackParamList } from '../navigation/AppNavigator';
+import { useFocusEffect, CompositeNavigationProp } from '@react-navigation/native';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { AppStackParamList, TabParamList } from '../navigation/AppNavigator';
 import { useAuthStore } from '../store/authStore';
 import { socketService } from '../services/socketService';
 import { requestNotificationPermission, showNotification } from '../services/notificationService';
@@ -26,10 +27,15 @@ import {
 } from '../utils/encryption';
 import { decodeBase64 } from 'tweetnacl-util';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { colors, typography, spacing, borderRadius, shadows } from '../theme';
+import { colors, spacing } from '../theme';
 import { API_BASE } from '../config';
 
-type Props = { navigation: StackNavigationProp<AppStackParamList, 'Conversations'> };
+type NavigationProp = CompositeNavigationProp<
+  BottomTabNavigationProp<TabParamList, 'ConversationsTab'>,
+  StackNavigationProp<AppStackParamList>
+>;
+
+type Props = { navigation: NavigationProp };
 
 interface Conversation {
   id: string;
@@ -46,7 +52,7 @@ interface Conversation {
   } | null;
 }
 
-export default function ConversationsScreen({ navigation }: Props) {
+export default function ConversationsScreen({ navigation }: Props): React.JSX.Element {
   const { token, user, logout, keyPair } = useAuthStore();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [decryptedPreviews, setDecryptedPreviews] = useState<Record<string, string>>({});
@@ -55,15 +61,16 @@ export default function ConversationsScreen({ navigation }: Props) {
 
   useEffect(() => {
     navigation.setOptions({
-      headerLeft: () => (
-        <TouchableOpacity onPress={() => navigation.navigate('Settings')} style={{ marginLeft: spacing.md }}>
-          <Text style={{ fontSize: 22 }}>⚙️</Text>
-        </TouchableOpacity>
-      ),
       headerRight: () => (
-        <TouchableOpacity onPress={logout} style={{ marginRight: spacing.md }}>
-          <Text style={{ color: colors.primary, fontSize: typography.fontSizeMD }}>Sign Out</Text>
-        </TouchableOpacity>
+        <Pressable
+          onPress={logout}
+          style={{ marginRight: spacing.md }}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Sign out"
+        >
+          <MaterialCommunityIcons name="logout" size={22} color={colors.textSecondary} />
+        </Pressable>
       ),
     });
   }, [navigation, logout]);
@@ -239,9 +246,9 @@ export default function ConversationsScreen({ navigation }: Props) {
         )}
         ListEmptyComponent={
           <EmptyState
-            icon="💬"
+            icon="chat-outline"
             title="No conversations yet"
-            subtitle="Start chatting by tapping the + button"
+            subtitle="Start chatting by tapping the button below"
           />
         }
         refreshControl={
@@ -255,13 +262,12 @@ export default function ConversationsScreen({ navigation }: Props) {
           />
         }
       />
-      <TouchableOpacity
+      <FAB
+        icon="pencil"
         style={styles.fab}
         onPress={() => navigation.navigate('NewChat')}
-        activeOpacity={0.85}
-      >
-        <Text style={styles.fabIcon}>✏️</Text>
-      </TouchableOpacity>
+        color={colors.onPrimary}
+      />
     </ScreenContainer>
   );
 }
@@ -270,16 +276,8 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     bottom: spacing.xl,
-    right: spacing.xl,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    right: spacing.lg,
     backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...shadows.md,
-  },
-  fabIcon: {
-    fontSize: 24,
+    borderRadius: 20,
   },
 });
