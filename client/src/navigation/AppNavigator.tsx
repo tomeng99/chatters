@@ -88,7 +88,6 @@ function HomeTabs(): React.JSX.Element {
           borderTopColor: colors.border,
           paddingBottom: insets.bottom > 0 ? insets.bottom : spacing.xs,
           paddingTop: spacing.xs,
-          height: 56 + (insets.bottom > 0 ? insets.bottom : 0),
         },
         tabBarLabelStyle: {
           fontSize: typography.fontSizeXS,
