@@ -69,7 +69,6 @@ export default function MediaViewer({ visible, uri, mediaType, onClose }: MediaV
               style={styles.fullVideo}
               resizeMode={ResizeMode.CONTAIN}
               useNativeControls
-              shouldPlay
             />
           )}
         </View>
