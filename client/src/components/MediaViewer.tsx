@@ -5,7 +5,6 @@ import {
   Image,
   StyleSheet,
   TouchableOpacity,
-  Dimensions,
   StatusBar,
   Platform,
   Pressable,
@@ -22,8 +21,6 @@ interface MediaViewerProps {
   mediaType: MediaType;
   onClose: () => void;
 }
-
-const SCREEN = Dimensions.get('window');
 
 export default function MediaViewer({ visible, uri, mediaType, onClose }: MediaViewerProps) {
   const insets = useSafeAreaInsets();
@@ -69,7 +66,7 @@ export default function MediaViewer({ visible, uri, mediaType, onClose }: MediaV
             <Video
               source={{ uri }}
               style={styles.fullVideo}
-              resizeMode={ResizeMode.CONTAIN}
+              resizeMode={ResizeMode.COVER}
               useNativeControls
               shouldPlay
             />
@@ -99,8 +96,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   mediaContainer: {
-    width: SCREEN.width,
-    height: SCREEN.height,
+    ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
   },
