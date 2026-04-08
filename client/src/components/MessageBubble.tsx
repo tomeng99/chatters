@@ -1,7 +1,6 @@
-import React, { useState, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Linking, Platform } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Linking } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Video, ResizeMode, VideoFullscreenUpdate } from 'expo-av';
 import { colors, typography, spacing, borderRadius } from '../theme';
 import EncryptionBadge from './EncryptionBadge';
 import { API_BASE } from '../config';
@@ -102,32 +101,6 @@ export default function MessageBubble({
   const openViewer = useCallback(() => setViewerVisible(true), []);
   const closeViewer = useCallback(() => setViewerVisible(false), []);
 
-  const videoRef = useRef<Video>(null);
-
-  const handleNativeVideoPlay = useCallback(async () => {
-    if (videoRef.current) {
-      try {
-        await videoRef.current.presentFullscreenPlayer();
-        videoRef.current.playAsync().catch(() => {});
-      } catch {
-        // presentFullscreenPlayer is not supported on Android; fall back to modal
-        openViewer();
-      }
-    } else {
-      openViewer();
-    }
-  }, [openViewer]);
-
-  const handleFullscreenUpdate = useCallback(
-    (event: { fullscreenUpdate: VideoFullscreenUpdate }) => {
-      if (event.fullscreenUpdate === VideoFullscreenUpdate.PLAYER_DID_DISMISS) {
-        videoRef.current?.pauseAsync().catch(() => {});
-        videoRef.current?.setPositionAsync(0).catch(() => {});
-      }
-    },
-    [],
-  );
-
   const renderContent = () => {
     if (messageType === 'image' && !imageError) {
       return (
@@ -156,20 +129,9 @@ export default function MessageBubble({
     if (messageType === 'video') {
       return (
         <>
-          {/* Hidden Video element used as ref for native fullscreen on iOS */}
-          {Platform.OS === 'ios' && (
-            <Video
-              ref={videoRef}
-              source={{ uri: resolveUrl(content) }}
-              style={styles.hiddenVideo}
-              resizeMode={ResizeMode.CONTAIN}
-              shouldPlay={false}
-              onFullscreenUpdate={handleFullscreenUpdate}
-            />
-          )}
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={Platform.OS === 'web' ? openViewer : handleNativeVideoPlay}
+            onPress={openViewer}
           >
             <View style={styles.videoPreview}>
               <View style={styles.videoPlayOverlay}>
@@ -387,12 +349,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1a2e',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  hiddenVideo: {
-    width: 0,
-    height: 0,
-    position: 'absolute',
-    opacity: 0,
   },
   videoPlayOverlay: {
     alignItems: 'center',
