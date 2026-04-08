@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import {
   Modal,
   View,
@@ -10,7 +10,7 @@ import {
   Pressable,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Video, ResizeMode } from 'expo-av';
+import { Video, ResizeMode, VideoFullscreenUpdate } from 'expo-av';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export type MediaType = 'image' | 'video';
@@ -24,10 +24,47 @@ interface MediaViewerProps {
 
 export default function MediaViewer({ visible, uri, mediaType, onClose }: MediaViewerProps) {
   const insets = useSafeAreaInsets();
+  const videoRef = useRef<Video>(null);
+  const fullscreenPresentedRef = useRef(false);
+
+  // Reset the fullscreen flag each time the modal is opened so iOS auto-presents
+  useEffect(() => {
+    if (visible) {
+      fullscreenPresentedRef.current = false;
+    }
+  }, [visible]);
 
   const handleBackdropPress = useCallback(() => {
     onClose();
   }, [onClose]);
+
+  // On iOS, present the native fullscreen player as soon as the video is ready
+  const handleVideoReadyForDisplay = useCallback(async () => {
+    if (Platform.OS === 'ios' && videoRef.current && !fullscreenPresentedRef.current) {
+      fullscreenPresentedRef.current = true;
+      try {
+        await videoRef.current.presentFullscreenPlayer();
+        // Start playback; ignore errors so the native player still shows
+        videoRef.current.playAsync().catch(() => {});
+      } catch {
+        fullscreenPresentedRef.current = false;
+        // Fall back to the in-modal player if native fullscreen is unavailable
+      }
+    }
+  }, []);
+
+  // Close the modal when the native fullscreen player is dismissed
+  const handleFullscreenUpdate = useCallback(
+    (event: { fullscreenUpdate: VideoFullscreenUpdate }) => {
+      if (event.fullscreenUpdate === VideoFullscreenUpdate.PLAYER_DID_DISMISS) {
+        fullscreenPresentedRef.current = false;
+        videoRef.current?.pauseAsync().catch(() => {});
+        videoRef.current?.setPositionAsync(0).catch(() => {});
+        onClose();
+      }
+    },
+    [onClose],
+  );
 
   return (
     <Modal
@@ -64,11 +101,14 @@ export default function MediaViewer({ visible, uri, mediaType, onClose }: MediaV
             />
           ) : (
             <Video
+              ref={videoRef}
               source={{ uri }}
               style={styles.fullVideo}
               resizeMode={ResizeMode.COVER}
               useNativeControls
               shouldPlay
+              onReadyForDisplay={handleVideoReadyForDisplay}
+              onFullscreenUpdate={handleFullscreenUpdate}
             />
           )}
         </View>
