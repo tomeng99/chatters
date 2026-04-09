@@ -61,22 +61,26 @@ export default function MediaViewer({ visible, uri, mediaType, onClose }: MediaV
       MIN_VIDEO_DIMENSION,
     );
 
-    if (
-      !videoNaturalSize
-      || videoNaturalSize.width <= 0
-      || videoNaturalSize.height <= 0
-    ) {
+    if (!videoNaturalSize) {
       return {
         width: maxWidth,
         height: maxHeight,
       };
     }
 
-    const scale = Math.min(maxWidth / videoNaturalSize.width, maxHeight / videoNaturalSize.height, 1);
+    const { width: naturalWidth, height: naturalHeight } = videoNaturalSize;
+    if (naturalWidth < MIN_RENDERED_DIMENSION || naturalHeight < MIN_RENDERED_DIMENSION) {
+      return {
+        width: maxWidth,
+        height: maxHeight,
+      };
+    }
+
+    const scale = Math.min(maxWidth / naturalWidth, maxHeight / naturalHeight, 1);
 
     return {
-      width: Math.max(MIN_RENDERED_DIMENSION, Math.round(videoNaturalSize.width * scale)),
-      height: Math.max(MIN_RENDERED_DIMENSION, Math.round(videoNaturalSize.height * scale)),
+      width: Math.max(MIN_RENDERED_DIMENSION, Math.round(naturalWidth * scale)),
+      height: Math.max(MIN_RENDERED_DIMENSION, Math.round(naturalHeight * scale)),
     };
   }, [insets.bottom, insets.top, videoNaturalSize, windowHeight, windowWidth]);
 
@@ -89,14 +93,15 @@ export default function MediaViewer({ visible, uri, mediaType, onClose }: MediaV
     handleClose();
   }, [handleClose]);
 
-  const presentationStyle = mediaType === 'video' ? 'fullScreen' : 'overFullScreen';
+  const modalPresentationStyle = mediaType === 'video' ? 'fullScreen' : 'overFullScreen';
 
   return (
     <Modal
       visible={visible}
+      // Native video rendering is more reliable in a non-transparent full-screen modal.
       transparent={mediaType !== 'video'}
       animationType="fade"
-      presentationStyle={presentationStyle}
+      presentationStyle={modalPresentationStyle}
       statusBarTranslucent
       onRequestClose={handleClose}
     >
