@@ -104,7 +104,7 @@ export default function MediaViewer({ visible, uri, mediaType, onClose }: MediaV
               ref={videoRef}
               source={{ uri }}
               style={styles.fullVideo}
-              resizeMode={ResizeMode.COVER}
+              resizeMode={ResizeMode.CONTAIN}
               useNativeControls
               shouldPlay
               onReadyForDisplay={handleVideoReadyForDisplay}
