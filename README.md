@@ -8,6 +8,9 @@ A secure, end-to-end encrypted messenger application built with React Native (+ 
 - 💬 **1:1 and group chats**
 - 🌐 **Works on mobile AND web** (React Native + React Native Web)
 - ⚡ **Real-time messaging** via Socket.io WebSockets
+- 📸 **File & media sharing** — images, videos, and PDFs up to 20 MB
+- 🔔 **Push notifications** with per-user notification preferences
+- 🏷️ **@mentions and critical messages** for high-priority alerts
 - 🗄️ **Self-hostable** Node.js backend with PostgreSQL
 
 ---
@@ -18,11 +21,11 @@ A secure, end-to-end encrypted messenger application built with React Native (+ 
 chatters/
 ├── server/              # Node.js + Express + Socket.io backend
 │   ├── src/
-│   │   ├── config/      # Database (PostgreSQL via pg)
+│   │   ├── config/      # Database (PostgreSQL via pg) + env validation
 │   │   ├── middleware/  # JWT auth middleware
 │   │   ├── routes/      # REST API routes
 │   │   ├── services/    # Socket.io service
-│   │   └── index.js     # Entry point
+│   │   └── index.ts     # Entry point
 │   ├── package.json
 │   └── .env.example
 ├── client/              # Expo + React Native + Web
@@ -32,10 +35,11 @@ chatters/
 │   │   ├── theme/       # Design tokens (colors, typography, spacing)
 │   │   ├── utils/       # E2E encryption utilities
 │   │   ├── store/       # Zustand auth store
-│   │   ├── services/    # Socket service
+│   │   ├── services/    # Socket + notification services
 │   │   └── navigation/  # React Navigation
 │   ├── App.tsx
 │   └── package.json
+├── deploy/              # Caddy reverse-proxy config
 ├── docker-compose.yml
 └── README.md
 ```
@@ -123,18 +127,28 @@ podman compose down
 
 ### Conversations (requires JWT Bearer token)
 
-| Method | Path                              | Description                  |
-|--------|-----------------------------------|------------------------------|
-| `GET`  | `/api/conversations`              | List user's conversations    |
-| `POST` | `/api/conversations`              | Create new conversation      |
-| `GET`  | `/api/conversations/:id/messages` | Fetch messages (paginated)   |
+| Method | Path                                | Description                      |
+|--------|-------------------------------------|----------------------------------|
+| `GET`  | `/api/conversations`                | List user's conversations        |
+| `POST` | `/api/conversations`                | Create new conversation          |
+| `GET`  | `/api/conversations/:id/messages`   | Fetch messages (paginated)       |
+| `GET`  | `/api/conversations/:id/group-key`  | Get encrypted group key          |
+| `PUT`  | `/api/conversations/:id/group-key`  | Distribute encrypted group keys  |
 
 ### Users (requires JWT Bearer token)
 
-| Method | Path                       | Description            |
-|--------|----------------------------|------------------------|
-| `GET`  | `/api/users/search?q=...`  | Search users           |
-| `GET`  | `/api/users/:id/publicKey` | Get user's public key  |
+| Method | Path                         | Description                            |
+|--------|------------------------------|----------------------------------------|
+| `GET`  | `/api/users/search?q=...`    | Search users                           |
+| `GET`  | `/api/users/settings`        | Get notification preference            |
+| `PUT`  | `/api/users/settings`        | Update notification preference         |
+| `GET`  | `/api/users/:id/publicKey`   | Get user's public key                  |
+
+### Uploads (requires JWT Bearer token)
+
+| Method | Path           | Body                        | Description                                    |
+|--------|----------------|-----------------------------|------------------------------------------------|
+| `POST` | `/api/upload`  | `multipart/form-data (file)`| Upload image, video, or PDF (max 20 MB)        |
 
 ---
 
@@ -142,7 +156,7 @@ podman compose down
 
 - **Key generation**: On registration, a NaCl box keypair is generated on the client. The public key is sent to the server; the private key is stored locally in AsyncStorage and **never sent to the server**.
 - **1:1 chats**: Messages are encrypted with `nacl.box` using the recipient's public key and the sender's secret key.
-- **Group chats**: A random shared secret (`nacl.secretbox`) is generated locally per group conversation and stored in AsyncStorage.
+- **Group chats**: The conversation creator generates a random shared secret and distributes it to each member by encrypting a copy with each member's public key (using `nacl.box`). The server stores only these encrypted key envelopes. No member's device can decrypt another member's copy. Each member fetches and decrypts their own envelope on first load.
 - **Server role**: The server stores only ciphertext — it cannot read message content.
 
 ---
@@ -165,15 +179,66 @@ Components import exclusively from theme — no magic numbers in screens.
 
 ### Client → Server
 
-| Event              | Payload                                      | Description       |
-|--------------------|----------------------------------------------|-------------------|
-| `send_message`     | `{conversationId, content, iv, isEncrypted}` | Send a message    |
-| `join_conversation`| `conversationId`                             | Join a room       |
-| `typing`           | `{conversationId, isTyping}`                 | Typing indicator  |
+| Event              | Payload                   | Description       |
+|--------------------|---------------------------|-------------------|
+| `send_message`     | See payload below         | Send a message    |
+| `join_conversation`| `conversationId`          | Join a room       |
+| `typing`           | `{conversationId, isTyping}` | Typing indicator |
+
+**`send_message` payload:**
+```json
+{
+  "conversationId": "string",
+  "content": "string",
+  "iv": "string | null",
+  "isEncrypted": "boolean",
+  "isCritical": "boolean",
+  "taggedUserIds": ["string"],
+  "messageType": "text | image | video | file",
+  "fileName": "string | null"
+}
+```
 
 ### Server → Client
 
-| Event         | Payload                              | Description            |
-|---------------|--------------------------------------|------------------------|
-| `new_message` | Message object                       | New message received   |
-| `user_typing` | `{userId, username, isTyping}`       | Typing notification    |
+| Event         | Payload               | Description                   |
+|---------------|-----------------------|-------------------------------|
+| `new_message` | See payload below     | New message received          |
+| `user_typing` | See payload below     | Typing notification           |
+| `notification`| See payload below     | In-app notification           |
+
+**`new_message` payload:**
+```json
+{
+  "id": "string",
+  "conversationId": "string",
+  "content": "string",
+  "iv": "string | null",
+  "isEncrypted": "boolean",
+  "isCritical": "boolean",
+  "taggedUserIds": ["string"],
+  "messageType": "text | image | video | file",
+  "fileName": "string | null",
+  "createdAt": "number (unix timestamp)",
+  "sender": { "id": "string", "username": "string" }
+}
+```
+
+**`user_typing` payload:**
+```json
+{ "userId": "string", "username": "string", "isTyping": "boolean", "conversationId": "string" }
+```
+
+**`notification` payload:**
+```json
+{
+  "type": "new_message",
+  "conversationId": "string",
+  "conversationName": "string | null",
+  "isGroup": "boolean",
+  "messageId": "string",
+  "senderUsername": "string",
+  "isCritical": "boolean",
+  "isTagged": "boolean"
+}
+```
