@@ -16,8 +16,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export type MediaType = 'image' | 'video';
 
-const HORIZONTAL_PADDING = 24;
-const VERTICAL_PADDING = 96;
+const HORIZONTAL_MARGIN = 24;
+const VERTICAL_MARGIN = 48;
 const MIN_VIDEO_DIMENSION = 160;
 const MIN_RENDERED_DIMENSION = 1;
 
@@ -34,17 +34,17 @@ export default function MediaViewer({ visible, uri, mediaType, onClose }: MediaV
   const videoRef = useRef<Video>(null);
   const [videoNaturalSize, setVideoNaturalSize] = useState<{ width: number; height: number } | null>(null);
 
+  const resetVideo = useCallback(() => {
+    videoRef.current?.pauseAsync().catch(() => {});
+    videoRef.current?.setPositionAsync(0).catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (!visible) {
       setVideoNaturalSize(null);
-      videoRef.current?.pauseAsync().catch(() => {});
-      videoRef.current?.setPositionAsync(0).catch(() => {});
+      resetVideo();
     }
-  }, [visible]);
-
-  const handleBackdropPress = useCallback(() => {
-    onClose();
-  }, [onClose]);
+  }, [resetVideo, visible]);
 
   const handleVideoReadyForDisplay = useCallback((event: VideoReadyForDisplayEvent) => {
     const { width, height } = event.naturalSize;
@@ -54,13 +54,17 @@ export default function MediaViewer({ visible, uri, mediaType, onClose }: MediaV
   }, []);
 
   const videoStyle = useMemo(() => {
-    const maxWidth = Math.max(windowWidth - HORIZONTAL_PADDING, MIN_VIDEO_DIMENSION);
+    const maxWidth = Math.max(windowWidth - HORIZONTAL_MARGIN * 2, MIN_VIDEO_DIMENSION);
     const maxHeight = Math.max(
-      windowHeight - insets.top - insets.bottom - VERTICAL_PADDING,
+      windowHeight - insets.top - insets.bottom - VERTICAL_MARGIN * 2,
       MIN_VIDEO_DIMENSION,
     );
 
-    if (!videoNaturalSize) {
+    if (
+      !videoNaturalSize
+      || videoNaturalSize.width <= 0
+      || videoNaturalSize.height <= 0
+    ) {
       return {
         width: maxWidth,
         height: maxHeight,
@@ -76,19 +80,22 @@ export default function MediaViewer({ visible, uri, mediaType, onClose }: MediaV
   }, [insets.bottom, insets.top, videoNaturalSize, windowHeight, windowWidth]);
 
   const handleClose = useCallback(() => {
-    videoRef.current?.pauseAsync().catch(() => {});
-    videoRef.current?.setPositionAsync(0).catch(() => {});
+    resetVideo();
     onClose();
-  }, [onClose]);
+  }, [onClose, resetVideo]);
 
-  const modalPresentationStyle = mediaType === 'video' ? 'fullScreen' : 'overFullScreen';
+  const handleBackdropPress = useCallback(() => {
+    handleClose();
+  }, [handleClose]);
+
+  const presentationStyle = mediaType === 'video' ? 'fullScreen' : 'overFullScreen';
 
   return (
     <Modal
       visible={visible}
       transparent={mediaType !== 'video'}
       animationType="fade"
-      presentationStyle={modalPresentationStyle}
+      presentationStyle={presentationStyle}
       statusBarTranslucent
       onRequestClose={handleClose}
     >
