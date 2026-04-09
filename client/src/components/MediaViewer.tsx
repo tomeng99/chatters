@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Modal,
   View,
@@ -8,12 +8,19 @@ import {
   StatusBar,
   Platform,
   Pressable,
+  useWindowDimensions,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Video, ResizeMode, VideoFullscreenUpdate } from 'expo-av';
+import { Video, ResizeMode, VideoReadyForDisplayEvent } from 'expo-av';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export type MediaType = 'image' | 'video';
+
+const HORIZONTAL_MARGIN = 24;
+const VERTICAL_MARGIN = 48;
+const SIDES = 2;
+const MIN_VIDEO_DIMENSION = 160;
+const MIN_RENDERED_DIMENSION = 1;
 
 interface MediaViewerProps {
   visible: boolean;
@@ -24,74 +31,95 @@ interface MediaViewerProps {
 
 export default function MediaViewer({ visible, uri, mediaType, onClose }: MediaViewerProps) {
   const insets = useSafeAreaInsets();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const videoRef = useRef<Video>(null);
-  const fullscreenPresentedRef = useRef(false);
+  const [videoNaturalSize, setVideoNaturalSize] = useState<{ width: number; height: number } | null>(null);
 
-  // Reset the fullscreen flag each time the modal is opened so iOS auto-presents
+  const resetVideo = useCallback(() => {
+    videoRef.current?.pauseAsync().catch(() => {});
+    videoRef.current?.setPositionAsync(0).catch(() => {});
+  }, []);
+
   useEffect(() => {
-    if (visible) {
-      fullscreenPresentedRef.current = false;
+    if (!visible) {
+      setVideoNaturalSize(null);
+      resetVideo();
     }
-  }, [visible]);
+  }, [resetVideo, visible]);
 
-  const handleBackdropPress = useCallback(() => {
-    onClose();
-  }, [onClose]);
-
-  // On iOS, present the native fullscreen player as soon as the video is ready
-  const handleVideoReadyForDisplay = useCallback(async () => {
-    if (Platform.OS === 'ios' && videoRef.current && !fullscreenPresentedRef.current) {
-      fullscreenPresentedRef.current = true;
-      try {
-        await videoRef.current.presentFullscreenPlayer();
-        // Start playback; ignore errors so the native player still shows
-        videoRef.current.playAsync().catch(() => {});
-      } catch {
-        fullscreenPresentedRef.current = false;
-        // Fall back to the in-modal player if native fullscreen is unavailable
-      }
+  const handleVideoReadyForDisplay = useCallback((event: VideoReadyForDisplayEvent) => {
+    const { width, height } = event.naturalSize;
+    if (width > 0 && height > 0) {
+      setVideoNaturalSize({ width, height });
     }
   }, []);
 
-  // Close the modal when the native fullscreen player is dismissed
-  const handleFullscreenUpdate = useCallback(
-    (event: { fullscreenUpdate: VideoFullscreenUpdate }) => {
-      if (event.fullscreenUpdate === VideoFullscreenUpdate.PLAYER_DID_DISMISS) {
-        fullscreenPresentedRef.current = false;
-        videoRef.current?.pauseAsync().catch(() => {});
-        videoRef.current?.setPositionAsync(0).catch(() => {});
-        onClose();
-      }
-    },
-    [onClose],
-  );
+  const videoStyle = useMemo(() => {
+    const maxWidth = Math.max(windowWidth - HORIZONTAL_MARGIN * SIDES, MIN_VIDEO_DIMENSION);
+    const maxHeight = Math.max(
+      windowHeight - insets.top - insets.bottom - VERTICAL_MARGIN * SIDES,
+      MIN_VIDEO_DIMENSION,
+    );
+
+    if (!videoNaturalSize) {
+      return {
+        width: maxWidth,
+        height: maxHeight,
+      };
+    }
+
+    const { width: naturalWidth, height: naturalHeight } = videoNaturalSize;
+    if (naturalWidth < MIN_RENDERED_DIMENSION || naturalHeight < MIN_RENDERED_DIMENSION) {
+      return {
+        width: maxWidth,
+        height: maxHeight,
+      };
+    }
+
+    const scale = Math.min(maxWidth / naturalWidth, maxHeight / naturalHeight, 1);
+
+    return {
+      width: Math.max(MIN_RENDERED_DIMENSION, Math.round(naturalWidth * scale)),
+      height: Math.max(MIN_RENDERED_DIMENSION, Math.round(naturalHeight * scale)),
+    };
+  }, [insets.bottom, insets.top, videoNaturalSize, windowHeight, windowWidth]);
+
+  const handleClose = useCallback(() => {
+    resetVideo();
+    onClose();
+  }, [onClose, resetVideo]);
+
+  const handleBackdropPress = useCallback(() => {
+    handleClose();
+  }, [handleClose]);
+
+  const modalPresentationStyle = mediaType === 'video' ? 'fullScreen' : 'overFullScreen';
 
   return (
     <Modal
       visible={visible}
-      transparent
+      // Native video rendering is more reliable in a non-transparent full-screen modal.
+      transparent={mediaType !== 'video'}
       animationType="fade"
+      presentationStyle={modalPresentationStyle}
       statusBarTranslucent
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
       <StatusBar hidden={Platform.OS !== 'web'} />
       <View style={styles.overlay}>
-        {/* Backdrop – tap to close (disabled for video on native to avoid intercepting player controls) */}
         {(mediaType !== 'video' || Platform.OS === 'web') && (
           <Pressable style={StyleSheet.absoluteFill} onPress={handleBackdropPress} />
         )}
 
-        {/* Close button */}
         <TouchableOpacity
           style={[styles.closeButton, { top: insets.top + 12 }]}
-          onPress={onClose}
+          onPress={handleClose}
           activeOpacity={0.7}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
           <MaterialCommunityIcons name="close" size={28} color="#FFFFFF" />
         </TouchableOpacity>
 
-        {/* Media content */}
         <View style={styles.mediaContainer} pointerEvents="box-none">
           {mediaType === 'image' ? (
             <Image
@@ -103,12 +131,11 @@ export default function MediaViewer({ visible, uri, mediaType, onClose }: MediaV
             <Video
               ref={videoRef}
               source={{ uri }}
-              style={styles.fullVideo}
+              style={[styles.fullVideo, videoStyle]}
               resizeMode={ResizeMode.CONTAIN}
               useNativeControls
               shouldPlay
               onReadyForDisplay={handleVideoReadyForDisplay}
-              onFullscreenUpdate={handleFullscreenUpdate}
             />
           )}
         </View>
@@ -145,7 +172,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   fullVideo: {
-    width: '100%',
-    height: '100%',
+    maxWidth: '100%',
+    maxHeight: '100%',
   },
 });
