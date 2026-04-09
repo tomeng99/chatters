@@ -11,7 +11,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Video, ResizeMode, VideoReadyForDisplayEvent } from 'expo-av';
+import { Video, ResizeMode, VideoReadyForDisplayEvent, VideoNaturalSize } from 'expo-av';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export type MediaType = 'image' | 'video';
@@ -33,7 +33,7 @@ export default function MediaViewer({ visible, uri, mediaType, onClose }: MediaV
   const insets = useSafeAreaInsets();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const videoRef = useRef<Video>(null);
-  const [videoNaturalSize, setVideoNaturalSize] = useState<{ width: number; height: number } | null>(null);
+  const [videoNaturalSize, setVideoNaturalSize] = useState<VideoNaturalSize | null>(null);
 
   const resetVideo = useCallback(() => {
     videoRef.current?.pauseAsync().catch(() => {});
@@ -48,9 +48,9 @@ export default function MediaViewer({ visible, uri, mediaType, onClose }: MediaV
   }, [resetVideo, visible]);
 
   const handleVideoReadyForDisplay = useCallback((event: VideoReadyForDisplayEvent) => {
-    const { width, height } = event.naturalSize;
+    const { width, height, orientation } = event.naturalSize;
     if (width > 0 && height > 0) {
-      setVideoNaturalSize({ width, height });
+      setVideoNaturalSize({ width, height, orientation });
     }
   }, []);
 
@@ -68,7 +68,16 @@ export default function MediaViewer({ visible, uri, mediaType, onClose }: MediaV
       };
     }
 
-    const { width: naturalWidth, height: naturalHeight } = videoNaturalSize;
+    const {
+      width: rawNaturalWidth,
+      height: rawNaturalHeight,
+      orientation,
+    } = videoNaturalSize;
+    const shouldSwapDimensions =
+      (orientation === 'portrait' && rawNaturalWidth > rawNaturalHeight) ||
+      (orientation === 'landscape' && rawNaturalHeight > rawNaturalWidth);
+    const naturalWidth = shouldSwapDimensions ? rawNaturalHeight : rawNaturalWidth;
+    const naturalHeight = shouldSwapDimensions ? rawNaturalWidth : rawNaturalHeight;
     if (naturalWidth < MIN_RENDERED_DIMENSION || naturalHeight < MIN_RENDERED_DIMENSION) {
       return {
         width: maxWidth,
