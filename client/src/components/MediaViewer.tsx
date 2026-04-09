@@ -16,6 +16,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export type MediaType = 'image' | 'video';
 
+const HORIZONTAL_PADDING = 24;
+const VERTICAL_PADDING = 96;
+const MIN_VIDEO_DIMENSION = 160;
+const MIN_RENDERED_DIMENSION = 1;
+
 interface MediaViewerProps {
   visible: boolean;
   uri: string;
@@ -49,8 +54,11 @@ export default function MediaViewer({ visible, uri, mediaType, onClose }: MediaV
   }, []);
 
   const videoStyle = useMemo(() => {
-    const maxWidth = Math.max(windowWidth - 24, 160);
-    const maxHeight = Math.max(windowHeight - insets.top - insets.bottom - 96, 160);
+    const maxWidth = Math.max(windowWidth - HORIZONTAL_PADDING, MIN_VIDEO_DIMENSION);
+    const maxHeight = Math.max(
+      windowHeight - insets.top - insets.bottom - VERTICAL_PADDING,
+      MIN_VIDEO_DIMENSION,
+    );
 
     if (!videoNaturalSize) {
       return {
@@ -62,8 +70,8 @@ export default function MediaViewer({ visible, uri, mediaType, onClose }: MediaV
     const scale = Math.min(maxWidth / videoNaturalSize.width, maxHeight / videoNaturalSize.height, 1);
 
     return {
-      width: Math.max(1, Math.round(videoNaturalSize.width * scale)),
-      height: Math.max(1, Math.round(videoNaturalSize.height * scale)),
+      width: Math.max(MIN_RENDERED_DIMENSION, Math.round(videoNaturalSize.width * scale)),
+      height: Math.max(MIN_RENDERED_DIMENSION, Math.round(videoNaturalSize.height * scale)),
     };
   }, [insets.bottom, insets.top, videoNaturalSize, windowHeight, windowWidth]);
 
