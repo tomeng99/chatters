@@ -18,6 +18,7 @@ export type MediaType = 'image' | 'video';
 
 const HORIZONTAL_MARGIN = 24;
 const VERTICAL_MARGIN = 48;
+const SIDES = 2;
 const MIN_VIDEO_DIMENSION = 160;
 const MIN_RENDERED_DIMENSION = 1;
 
@@ -54,9 +55,9 @@ export default function MediaViewer({ visible, uri, mediaType, onClose }: MediaV
   }, []);
 
   const videoStyle = useMemo(() => {
-    const maxWidth = Math.max(windowWidth - HORIZONTAL_MARGIN * 2, MIN_VIDEO_DIMENSION);
+    const maxWidth = Math.max(windowWidth - HORIZONTAL_MARGIN * SIDES, MIN_VIDEO_DIMENSION);
     const maxHeight = Math.max(
-      windowHeight - insets.top - insets.bottom - VERTICAL_MARGIN * 2,
+      windowHeight - insets.top - insets.bottom - VERTICAL_MARGIN * SIDES,
       MIN_VIDEO_DIMENSION,
     );
 
