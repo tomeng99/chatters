@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import {
   Modal,
   View,
@@ -11,16 +11,10 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Video, ResizeMode, VideoReadyForDisplayEvent, VideoNaturalSize } from 'expo-av';
+import { Video, ResizeMode } from 'expo-av';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export type MediaType = 'image' | 'video';
-
-const HORIZONTAL_MARGIN = 24;
-const VERTICAL_MARGIN = 48;
-const SIDES = 2;
-const MIN_VIDEO_DIMENSION = 160;
-const MIN_RENDERED_DIMENSION = 1;
 
 interface MediaViewerProps {
   visible: boolean;
@@ -33,7 +27,6 @@ export default function MediaViewer({ visible, uri, mediaType, onClose }: MediaV
   const insets = useSafeAreaInsets();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const videoRef = useRef<Video>(null);
-  const [videoNaturalSize, setVideoNaturalSize] = useState<VideoNaturalSize | null>(null);
 
   const resetVideo = useCallback(() => {
     videoRef.current?.pauseAsync().catch(() => {});
@@ -42,56 +35,9 @@ export default function MediaViewer({ visible, uri, mediaType, onClose }: MediaV
 
   useEffect(() => {
     if (!visible) {
-      setVideoNaturalSize(null);
       resetVideo();
     }
   }, [resetVideo, visible]);
-
-  const handleVideoReadyForDisplay = useCallback((event: VideoReadyForDisplayEvent) => {
-    const { width, height, orientation } = event.naturalSize;
-    if (width > 0 && height > 0) {
-      setVideoNaturalSize({ width, height, orientation });
-    }
-  }, []);
-
-  const videoStyle = useMemo(() => {
-    const maxWidth = Math.max(windowWidth - HORIZONTAL_MARGIN * SIDES, MIN_VIDEO_DIMENSION);
-    const maxHeight = Math.max(
-      windowHeight - insets.top - insets.bottom - VERTICAL_MARGIN * SIDES,
-      MIN_VIDEO_DIMENSION,
-    );
-
-    if (!videoNaturalSize) {
-      return {
-        width: maxWidth,
-        height: maxHeight,
-      };
-    }
-
-    const {
-      width: rawNaturalWidth,
-      height: rawNaturalHeight,
-      orientation,
-    } = videoNaturalSize;
-    const shouldSwapDimensions =
-      (orientation === 'portrait' && rawNaturalWidth > rawNaturalHeight) ||
-      (orientation === 'landscape' && rawNaturalHeight > rawNaturalWidth);
-    const naturalWidth = shouldSwapDimensions ? rawNaturalHeight : rawNaturalWidth;
-    const naturalHeight = shouldSwapDimensions ? rawNaturalWidth : rawNaturalHeight;
-    if (naturalWidth < MIN_RENDERED_DIMENSION || naturalHeight < MIN_RENDERED_DIMENSION) {
-      return {
-        width: maxWidth,
-        height: maxHeight,
-      };
-    }
-
-    const scale = Math.min(maxWidth / naturalWidth, maxHeight / naturalHeight, 1);
-
-    return {
-      width: Math.max(MIN_RENDERED_DIMENSION, Math.round(naturalWidth * scale)),
-      height: Math.max(MIN_RENDERED_DIMENSION, Math.round(naturalHeight * scale)),
-    };
-  }, [insets.bottom, insets.top, videoNaturalSize, windowHeight, windowWidth]);
 
   const handleClose = useCallback(() => {
     resetVideo();
@@ -140,11 +86,10 @@ export default function MediaViewer({ visible, uri, mediaType, onClose }: MediaV
             <Video
               ref={videoRef}
               source={{ uri }}
-              style={[styles.fullVideo, videoStyle]}
+              style={[styles.fullVideo, { width: windowWidth, height: windowHeight - insets.top - insets.bottom }]}
               resizeMode={ResizeMode.CONTAIN}
               useNativeControls
               shouldPlay
-              onReadyForDisplay={handleVideoReadyForDisplay}
             />
           )}
         </View>
@@ -181,7 +126,6 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   fullVideo: {
-    maxWidth: '100%',
-    maxHeight: '100%',
+    backgroundColor: 'transparent',
   },
 });
