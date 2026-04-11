@@ -609,7 +609,7 @@ export default function ChatScreen({ navigation, route }: Props) {
         />
       </View>
 
-      <View style={[styles.inputBarContainer, { paddingBottom: insets.bottom }]}>
+      <View style={[styles.inputBarContainer, { paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right }]}>
         {showAttachMenu && (
           <View style={styles.attachMenu}>
             <Pressable style={({ pressed }) => [styles.attachOption, pressed && styles.attachOptionPressed]} onPress={() => { setShowAttachMenu(false); handlePickImage(); }}>
