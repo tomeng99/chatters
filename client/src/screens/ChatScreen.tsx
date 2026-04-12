@@ -609,7 +609,7 @@ export default function ChatScreen({ navigation, route }: Props) {
         />
       </View>
 
-      <View style={[styles.inputBarContainer, { paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right }]}>
+      <View style={[styles.inputBarContainer, { paddingBottom: insets.bottom }]}>
         {showAttachMenu && (
           <View style={styles.attachMenu}>
             <Pressable style={({ pressed }) => [styles.attachOption, pressed && styles.attachOptionPressed]} onPress={() => { setShowAttachMenu(false); handlePickImage(); }}>
@@ -622,7 +622,7 @@ export default function ChatScreen({ navigation, route }: Props) {
             </Pressable>
           </View>
         )}
-        <View style={styles.inputBar}>
+        <View style={[styles.inputBar, { paddingLeft: spacing.md + insets.left, paddingRight: spacing.md + insets.right }]}>
           <Pressable
             style={[styles.criticalToggle, isCritical && styles.criticalToggleActive]}
             onPress={() => setIsCritical(!isCritical)}
@@ -732,7 +732,6 @@ const styles = StyleSheet.create({
   inputBar: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    paddingHorizontal: spacing.sm + 2,
     paddingVertical: spacing.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
