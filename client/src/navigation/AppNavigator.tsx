@@ -45,7 +45,7 @@ function makeStackScreenOptions(colors: ReturnType<typeof useTheme>['colors']) {
   return {
     headerStyle: {
       backgroundColor: colors.surface,
-      shadowColor: 'transparent' as const,
+      shadowColor: 'transparent',
       elevation: 0,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: colors.border,
@@ -153,9 +153,15 @@ export default function AppNavigator(): React.JSX.Element {
   const { token, isInitialized } = useAuthStore();
   const { colors, isDark } = useTheme();
 
+  const navColorOverrides = {
+    background: colors.background,
+    card: colors.surface,
+    border: colors.border,
+    text: colors.text,
+  };
   const navTheme = isDark
-    ? { ...NavDarkTheme, colors: { ...NavDarkTheme.colors, background: colors.background, card: colors.surface, border: colors.border, text: colors.text } }
-    : { ...NavDefaultTheme, colors: { ...NavDefaultTheme.colors, background: colors.background, card: colors.surface, border: colors.border, text: colors.text } };
+    ? { ...NavDarkTheme, colors: { ...NavDarkTheme.colors, ...navColorOverrides } }
+    : { ...NavDefaultTheme, colors: { ...NavDefaultTheme.colors, ...navColorOverrides } };
 
   if (!isInitialized) {
     return (
