@@ -18,7 +18,7 @@ function AppContent() {
   useEffect(() => {
     initAuth();
     initTheme();
-  }, []);
+  }, [initAuth, initTheme]);
 
   return (
     <PaperProvider

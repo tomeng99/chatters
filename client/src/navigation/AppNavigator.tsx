@@ -41,6 +41,26 @@ const AuthStack = createStackNavigator<AuthStackParamList>();
 const AppStack = createStackNavigator<AppStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
 
+function makeStackScreenOptions(colors: ReturnType<typeof useTheme>['colors']) {
+  return {
+    headerStyle: {
+      backgroundColor: colors.surface,
+      shadowColor: 'transparent' as const,
+      elevation: 0,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+    },
+    headerTintColor: colors.primary,
+    headerTitleStyle: {
+      fontSize: typography.fontSizeLG,
+      fontWeight: typography.fontWeightSemiBold,
+      color: colors.text,
+    },
+    headerBackTitleStyle: { fontSize: 0 },
+    cardStyle: { backgroundColor: colors.background },
+  };
+}
+
 function AuthNavigator(): React.JSX.Element {
   const { colors } = useTheme();
   return (
@@ -59,27 +79,13 @@ function AuthNavigator(): React.JSX.Element {
 function HomeTabs(): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
-  const stackScreenOptions = {
-    headerStyle: {
-      backgroundColor: colors.surface,
-      shadowColor: 'transparent' as const,
-      elevation: 0,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.border,
-    },
-    headerTintColor: colors.primary,
-    headerTitleStyle: {
-      fontSize: typography.fontSizeLG,
-      fontWeight: typography.fontWeightSemiBold,
-      color: colors.text,
-    },
-  };
+  const headerOptions = makeStackScreenOptions(colors);
   return (
     <Tab.Navigator
       screenOptions={{
-        headerStyle: stackScreenOptions.headerStyle,
-        headerTintColor: stackScreenOptions.headerTintColor,
-        headerTitleStyle: stackScreenOptions.headerTitleStyle,
+        headerStyle: headerOptions.headerStyle,
+        headerTintColor: headerOptions.headerTintColor,
+        headerTitleStyle: headerOptions.headerTitleStyle,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textTertiary,
         tabBarStyle: {
@@ -122,25 +128,8 @@ function HomeTabs(): React.JSX.Element {
 
 function AppNavigatorStack(): React.JSX.Element {
   const { colors } = useTheme();
-  const stackScreenOptions = {
-    headerStyle: {
-      backgroundColor: colors.surface,
-      shadowColor: 'transparent' as const,
-      elevation: 0,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.border,
-    },
-    headerTintColor: colors.primary,
-    headerTitleStyle: {
-      fontSize: typography.fontSizeLG,
-      fontWeight: typography.fontWeightSemiBold,
-      color: colors.text,
-    },
-    headerBackTitleStyle: { fontSize: 0 },
-    cardStyle: { backgroundColor: colors.background },
-  };
   return (
-    <AppStack.Navigator screenOptions={stackScreenOptions}>
+    <AppStack.Navigator screenOptions={makeStackScreenOptions(colors)}>
       <AppStack.Screen
         name="HomeTabs"
         component={HomeTabs}
