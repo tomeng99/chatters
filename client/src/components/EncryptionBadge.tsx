@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 
 interface EncryptionBadgeProps {
   color?: string;
@@ -9,12 +9,14 @@ interface EncryptionBadgeProps {
 }
 
 export default function EncryptionBadge({
-  color = colors.success,
+  color,
   size = 12,
 }: EncryptionBadgeProps) {
+  const { colors } = useTheme();
+  const resolvedColor = color ?? colors.success;
   return (
     <View style={styles.container}>
-      <MaterialCommunityIcons name="lock" size={size} color={color} />
+      <MaterialCommunityIcons name="lock" size={size} color={resolvedColor} />
     </View>
   );
 }

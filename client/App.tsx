@@ -5,25 +5,38 @@ import { PaperProvider } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuthStore } from './src/store/authStore';
+import { useThemeStore } from './src/store/themeStore';
+import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import AppNavigator from './src/navigation/AppNavigator';
-import { paperTheme } from './src/theme';
+import { paperTheme, paperDarkTheme } from './src/theme';
 
-export default function App() {
-  const { initialize } = useAuthStore();
+function AppContent() {
+  const { initialize: initAuth } = useAuthStore();
+  const { initialize: initTheme } = useThemeStore();
+  const { isDark } = useTheme();
 
   useEffect(() => {
-    initialize();
-  }, []);
+    initAuth();
+    initTheme();
+  }, [initAuth, initTheme]);
 
   return (
+    <PaperProvider
+      theme={isDark ? paperDarkTheme : paperTheme}
+      settings={{ icon: (props) => <MaterialCommunityIcons {...props} /> }}
+    >
+      <StatusBar style={isDark ? 'light' : 'dark'} />
+      <AppNavigator />
+    </PaperProvider>
+  );
+}
+
+export default function App() {
+  return (
     <SafeAreaProvider>
-      <PaperProvider
-        theme={paperTheme}
-        settings={{ icon: (props) => <MaterialCommunityIcons {...props} /> }}
-      >
-        <StatusBar style="dark" />
-        <AppNavigator />
-      </PaperProvider>
+      <ThemeProvider>
+        <AppContent />
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }

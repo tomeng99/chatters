@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   FlatList,
   StyleSheet,
@@ -27,7 +27,8 @@ import {
 } from '../utils/encryption';
 import { decodeBase64 } from 'tweetnacl-util';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { colors, spacing } from '../theme';
+import { spacing } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 import { API_BASE } from '../config';
 
 type NavigationProp = CompositeNavigationProp<
@@ -54,6 +55,8 @@ interface Conversation {
 
 export default function ConversationsScreen({ navigation }: Props): React.JSX.Element {
   const { token, user, logout, keyPair } = useAuthStore();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [decryptedPreviews, setDecryptedPreviews] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -272,7 +275,7 @@ export default function ConversationsScreen({ navigation }: Props): React.JSX.El
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
   fab: {
     position: 'absolute',
     bottom: spacing.xl,

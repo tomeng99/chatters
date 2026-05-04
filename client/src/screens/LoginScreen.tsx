@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -17,7 +17,8 @@ import Input from '../components/Input';
 import Card from '../components/Card';
 import Row from '../components/Row';
 import AppText from '../components/AppText';
-import { colors, spacing, shadows } from '../theme';
+import { spacing, shadows } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 
 type Props = { navigation: StackNavigationProp<AuthStackParamList, 'Login'> };
 
@@ -26,6 +27,8 @@ export default function LoginScreen({ navigation }: Props): React.JSX.Element {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const { login, isLoading } = useAuthStore();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const handleLogin = async (): Promise<void> => {
     setError('');
@@ -113,7 +116,7 @@ export default function LoginScreen({ navigation }: Props): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.background },
   container: {
     flexGrow: 1,

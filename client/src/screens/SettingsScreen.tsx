@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   ScrollView,
   Platform,
+  Switch,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { RadioButton } from 'react-native-paper';
@@ -15,7 +16,8 @@ import { requestNotificationPermission, getNotificationPermission } from '../ser
 import ScreenContainer from '../components/ScreenContainer';
 import AppText from '../components/AppText';
 import Row from '../components/Row';
-import { colors, typography, spacing, borderRadius } from '../theme';
+import { typography, spacing, borderRadius } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 import { API_BASE } from '../config';
 
 type NotificationPreference = 'all' | 'tags_and_critical' | 'critical_only' | 'none';
@@ -29,6 +31,8 @@ const NOTIFICATION_OPTIONS: { value: NotificationPreference; label: string; desc
 
 export default function SettingsScreen(): React.JSX.Element {
   const { token, user } = useAuthStore();
+  const { colors, isDark, toggleDarkMode } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [preference, setPreference] = useState<NotificationPreference>('all');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -106,6 +110,27 @@ export default function SettingsScreen(): React.JSX.Element {
         <Row style={styles.encryptedBadge}>
           <MaterialCommunityIcons name="shield-check" size={14} color={colors.success} />
           <AppText variant="caption" color={colors.success}>End-to-end encrypted</AppText>
+        </Row>
+      </View>
+
+      <View style={styles.section}>
+        <Row style={styles.sectionHeader}>
+          <MaterialCommunityIcons name="theme-light-dark" size={20} color={colors.text} />
+          <AppText variant="body" style={styles.sectionTitle}>Appearance</AppText>
+        </Row>
+        <Row style={styles.appearanceRow}>
+          <MaterialCommunityIcons
+            name={isDark ? 'weather-night' : 'weather-sunny'}
+            size={20}
+            color={colors.textSecondary}
+          />
+          <AppText variant="body" style={styles.appearanceLabel}>Dark Mode</AppText>
+          <Switch
+            value={isDark}
+            onValueChange={toggleDarkMode}
+            trackColor={{ false: colors.border, true: colors.primary + '80' }}
+            thumbColor={isDark ? colors.primary : colors.textTertiary}
+          />
         </Row>
       </View>
 
@@ -206,7 +231,7 @@ export default function SettingsScreen(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -248,6 +273,18 @@ const styles = StyleSheet.create({
   },
   sectionDescription: {
     marginBottom: spacing.md,
+  },
+  appearanceRow: {
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.surfaceSecondary,
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.sm,
+  },
+  appearanceLabel: {
+    flex: 1,
   },
   optionItem: {
     flexDirection: 'row',

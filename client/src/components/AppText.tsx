@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Text, StyleSheet, TextStyle, TextProps } from 'react-native';
-import { colors, typography } from '../theme';
+import { typography } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 
 type Variant = 'heading' | 'title' | 'body' | 'caption' | 'label';
 
@@ -18,6 +19,8 @@ export default function AppText({
   children,
   ...rest
 }: AppTextProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <Text
       style={[styles[variant], color ? { color } : undefined, style]}
@@ -28,7 +31,7 @@ export default function AppText({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
   heading: {
     fontSize: typography.fontSizeXXL,
     fontWeight: typography.fontWeightBold,

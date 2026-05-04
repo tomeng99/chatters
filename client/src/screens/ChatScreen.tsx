@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   FlatList,
@@ -39,7 +39,8 @@ import { decodeBase64, encodeBase64 } from 'tweetnacl-util';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import { colors, typography, spacing, borderRadius, shadows } from '../theme';
+import { typography, spacing, borderRadius, shadows } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 import ScreenContainer from '../components/ScreenContainer';
 import { API_BASE } from '../config';
 
@@ -57,6 +58,8 @@ type MessageType = 'text' | 'image' | 'video' | 'file';
 export default function ChatScreen({ navigation, route }: Props) {
   const { conversationId, conversationName, isGroup, members } = route.params;
   const { token, user, keyPair } = useAuthStore();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [inputText, setInputText] = useState('');
@@ -100,7 +103,7 @@ export default function ChatScreen({ navigation, route }: Props) {
         </View>
       ),
     });
-  }, [navigation, conversationName]);
+  }, [navigation, conversationName, styles, colors]);
 
   const getOrCreateGroupSharedKey = useCallback(async (): Promise<Uint8Array | null> => {
     if (!isGroup || !keyPair || !token) return null;
@@ -679,7 +682,7 @@ export default function ChatScreen({ navigation, route }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   FlatList,
@@ -16,7 +16,8 @@ import { useAuthStore } from '../store/authStore';
 import Avatar from '../components/Avatar';
 import Button from '../components/Button';
 import ScreenContainer from '../components/ScreenContainer';
-import { colors, typography, spacing, borderRadius } from '../theme';
+import { typography, spacing, borderRadius } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 import { API_BASE } from '../config';
 
 type Props = { navigation: StackNavigationProp<AppStackParamList, 'NewChat'> };
@@ -29,6 +30,8 @@ interface SearchUser {
 
 export default function NewChatScreen({ navigation }: Props) {
   const { token } = useAuthStore();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchUser[]>([]);
   const [selected, setSelected] = useState<SearchUser[]>([]);
@@ -218,7 +221,7 @@ export default function NewChatScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
   selectedBar: {
     paddingVertical: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
