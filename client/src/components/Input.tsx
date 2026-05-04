@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   TextInput,
@@ -9,7 +9,8 @@ import {
   TextInputProps,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, typography, spacing, borderRadius } from '../theme';
+import { typography, spacing, borderRadius } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -26,6 +27,8 @@ export default function Input({
   secureTextEntry,
   ...rest
 }: InputProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [isSecure, setIsSecure] = useState(secureTextEntry ?? false);
   const [focused, setFocused] = useState(false);
 
@@ -73,7 +76,7 @@ export default function Input({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
   container: {
     marginBottom: spacing.md,
   },

@@ -2,7 +2,8 @@ import React from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AppText from './AppText';
-import { colors, spacing } from '../theme';
+import { spacing } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 
 interface EmptyStateProps {
   icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
@@ -12,6 +13,7 @@ interface EmptyStateProps {
 }
 
 export default function EmptyState({ icon, title, subtitle, style }: EmptyStateProps) {
+  const { colors } = useTheme();
   return (
     <View style={[styles.container, style]}>
       <MaterialCommunityIcons name={icon} size={64} color={colors.border} />

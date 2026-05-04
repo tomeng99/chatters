@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import Avatar from './Avatar';
 import EncryptionBadge from './EncryptionBadge';
-import { colors, typography, spacing, borderRadius } from '../theme';
+import { typography, spacing, borderRadius } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 
 interface ConversationItemProps {
   name: string;
@@ -36,6 +37,8 @@ export default function ConversationItem({
   unreadCount = 0,
   onPress,
 }: ConversationItemProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <Pressable
       style={({ pressed }) => [styles.container, pressed && styles.containerPressed]}
@@ -69,7 +72,7 @@ export default function ConversationItem({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',

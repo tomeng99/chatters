@@ -1,7 +1,8 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, Linking } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, typography, spacing, borderRadius } from '../theme';
+import { typography, spacing, borderRadius } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 import EncryptionBadge from './EncryptionBadge';
 import { API_BASE } from '../config';
 import MediaViewer from './MediaViewer';
@@ -38,7 +39,9 @@ function hasUrls(text: string): boolean {
   return URL_REGEX.test(text);
 }
 
-function renderTextWithLinks(text: string, isSent: boolean) {
+type BubbleStyles = ReturnType<typeof createStyles>;
+
+function renderTextWithLinks(text: string, isSent: boolean, styles: BubbleStyles) {
   const parts: React.ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -88,6 +91,8 @@ export default function MessageBubble({
   messageType = 'text',
   fileName,
 }: MessageBubbleProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [imageError, setImageError] = useState(false);
   const [viewerVisible, setViewerVisible] = useState(false);
   const emojiOnly = messageType === 'text' && isEmojiOnly(content);
@@ -203,7 +208,7 @@ export default function MessageBubble({
 
     return (
       <Text style={[styles.content, isSent ? styles.contentSent : styles.contentReceived]}>
-        {containsLinks ? renderTextWithLinks(content, isSent) : content}
+        {containsLinks ? renderTextWithLinks(content, isSent, styles) : content}
       </Text>
     );
   };
@@ -247,7 +252,7 @@ export default function MessageBubble({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
   row: {
     flexDirection: 'row',
     marginVertical: 2,

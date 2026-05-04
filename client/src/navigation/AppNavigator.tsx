@@ -1,10 +1,11 @@
 import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DarkTheme as NavDarkTheme, DefaultTheme as NavDefaultTheme } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../store/authStore';
+import { useTheme } from '../context/ThemeContext';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import ConversationsScreen from '../screens/ConversationsScreen';
@@ -12,7 +13,7 @@ import ChatScreen from '../screens/ChatScreen';
 import NewChatScreen from '../screens/NewChatScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import ScreenContainer from '../components/ScreenContainer';
-import { colors, typography, spacing } from '../theme';
+import { typography, spacing } from '../theme';
 import { ActivityIndicator, StyleSheet } from 'react-native';
 
 export type AuthStackParamList = {
@@ -40,25 +41,8 @@ const AuthStack = createStackNavigator<AuthStackParamList>();
 const AppStack = createStackNavigator<AppStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
 
-const stackScreenOptions = {
-  headerStyle: {
-    backgroundColor: colors.surface,
-    shadowColor: 'transparent',
-    elevation: 0,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  headerTintColor: colors.primary,
-  headerTitleStyle: {
-    fontSize: typography.fontSizeLG,
-    fontWeight: typography.fontWeightSemiBold,
-    color: colors.text,
-  },
-  headerBackTitleStyle: { fontSize: 0 },
-  cardStyle: { backgroundColor: colors.background },
-};
-
 function AuthNavigator(): React.JSX.Element {
+  const { colors } = useTheme();
   return (
     <AuthStack.Navigator
       screenOptions={{
@@ -74,6 +58,22 @@ function AuthNavigator(): React.JSX.Element {
 
 function HomeTabs(): React.JSX.Element {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
+  const stackScreenOptions = {
+    headerStyle: {
+      backgroundColor: colors.surface,
+      shadowColor: 'transparent' as const,
+      elevation: 0,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+    },
+    headerTintColor: colors.primary,
+    headerTitleStyle: {
+      fontSize: typography.fontSizeLG,
+      fontWeight: typography.fontWeightSemiBold,
+      color: colors.text,
+    },
+  };
   return (
     <Tab.Navigator
       screenOptions={{
@@ -121,6 +121,24 @@ function HomeTabs(): React.JSX.Element {
 }
 
 function AppNavigatorStack(): React.JSX.Element {
+  const { colors } = useTheme();
+  const stackScreenOptions = {
+    headerStyle: {
+      backgroundColor: colors.surface,
+      shadowColor: 'transparent' as const,
+      elevation: 0,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+    },
+    headerTintColor: colors.primary,
+    headerTitleStyle: {
+      fontSize: typography.fontSizeLG,
+      fontWeight: typography.fontWeightSemiBold,
+      color: colors.text,
+    },
+    headerBackTitleStyle: { fontSize: 0 },
+    cardStyle: { backgroundColor: colors.background },
+  };
   return (
     <AppStack.Navigator screenOptions={stackScreenOptions}>
       <AppStack.Screen
@@ -144,6 +162,11 @@ function AppNavigatorStack(): React.JSX.Element {
 
 export default function AppNavigator(): React.JSX.Element {
   const { token, isInitialized } = useAuthStore();
+  const { colors, isDark } = useTheme();
+
+  const navTheme = isDark
+    ? { ...NavDarkTheme, colors: { ...NavDarkTheme.colors, background: colors.background, card: colors.surface, border: colors.border, text: colors.text } }
+    : { ...NavDefaultTheme, colors: { ...NavDefaultTheme.colors, background: colors.background, card: colors.surface, border: colors.border, text: colors.text } };
 
   if (!isInitialized) {
     return (
@@ -154,7 +177,7 @@ export default function AppNavigator(): React.JSX.Element {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer theme={navTheme}>
       {token ? <AppNavigatorStack /> : <AuthNavigator />}
     </NavigationContainer>
   );

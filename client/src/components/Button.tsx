@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Pressable,
   Text,
@@ -7,7 +7,8 @@ import {
   ViewStyle,
   TextStyle,
 } from 'react-native';
-import { colors, typography, spacing, borderRadius } from '../theme';
+import { typography, spacing, borderRadius } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 
 type Variant = 'primary' | 'secondary' | 'text';
 
@@ -30,6 +31,8 @@ export default function Button({
   style,
   textStyle,
 }: ButtonProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const isDisabled = disabled || loading;
 
   return (
@@ -70,7 +73,7 @@ export default function Button({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
   base: {
     height: 52,
     borderRadius: borderRadius.md,

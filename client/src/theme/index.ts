@@ -1,6 +1,6 @@
-import { MD3LightTheme } from 'react-native-paper';
+import { MD3LightTheme, MD3DarkTheme } from 'react-native-paper';
 
-export const colors = {
+export const lightColors = {
   primary: '#4F46E5',
   primaryDark: '#3730A3',
   primaryLight: '#818CF8',
@@ -22,6 +22,35 @@ export const colors = {
   online: '#10B981',
   linkSent: '#C7D2FE',
 };
+
+export const darkColors = {
+  primary: '#818CF8',
+  primaryDark: '#6366F1',
+  primaryLight: '#A5B4FC',
+  onPrimary: '#FFFFFF',
+  background: '#0F172A',
+  surface: '#1E293B',
+  surfaceSecondary: '#334155',
+  text: '#F1F5F9',
+  textSecondary: '#94A3B8',
+  textTertiary: '#64748B',
+  border: '#334155',
+  error: '#F87171',
+  success: '#34D399',
+  warning: '#FBBF24',
+  messageBubbleSent: '#6366F1',
+  messageBubbleReceived: '#1E293B',
+  messageBubbleSentText: '#FFFFFF',
+  messageBubbleReceivedText: '#F1F5F9',
+  online: '#34D399',
+  linkSent: '#C7D2FE',
+};
+
+export type Colors = typeof lightColors;
+
+// Keep `colors` export pointing at light palette so legacy static imports compile.
+// Components that need dynamic theming should use `useTheme()` from ThemeContext instead.
+export const colors = lightColors;
 
 export const typography = {
   fontSizeXS: 11,
@@ -75,13 +104,28 @@ export const paperTheme = {
   ...MD3LightTheme,
   colors: {
     ...MD3LightTheme.colors,
-    primary: colors.primary,
-    onPrimary: colors.onPrimary,
-    primaryContainer: colors.primaryLight + '20',
-    secondary: colors.textSecondary,
-    background: colors.background,
-    surface: colors.surface,
-    error: colors.error,
-    outline: colors.border,
+    primary: lightColors.primary,
+    onPrimary: lightColors.onPrimary,
+    primaryContainer: lightColors.primaryLight + '20',
+    secondary: lightColors.textSecondary,
+    background: lightColors.background,
+    surface: lightColors.surface,
+    error: lightColors.error,
+    outline: lightColors.border,
+  },
+};
+
+export const paperDarkTheme = {
+  ...MD3DarkTheme,
+  colors: {
+    ...MD3DarkTheme.colors,
+    primary: darkColors.primary,
+    onPrimary: darkColors.onPrimary,
+    primaryContainer: darkColors.primaryLight + '20',
+    secondary: darkColors.textSecondary,
+    background: darkColors.background,
+    surface: darkColors.surface,
+    error: darkColors.error,
+    outline: darkColors.border,
   },
 };

@@ -1,7 +1,7 @@
-import React from 'react';
-import { StyleSheet, ViewStyle } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, StyleSheet, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 
 interface ScreenContainerProps {
   children: React.ReactNode;
@@ -10,6 +10,8 @@ interface ScreenContainerProps {
 }
 
 export default function ScreenContainer({ children, style, centered }: ScreenContainerProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <SafeAreaView style={[styles.container, centered && styles.centered, style]}>
       {children}
@@ -17,7 +19,7 @@ export default function ScreenContainer({ children, style, centered }: ScreenCon
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
