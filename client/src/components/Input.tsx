@@ -82,23 +82,25 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
   },
   label: {
     fontSize: typography.fontSizeSM,
-    fontWeight: typography.fontWeightMedium,
-    color: colors.textSecondary,
+    fontWeight: typography.fontWeightSemiBold,
+    color: colors.text,
     marginBottom: spacing.xs + 2,
-    letterSpacing: 0.2,
+    letterSpacing: 0.3,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1.5,
+    borderWidth: 2,
     borderColor: colors.border,
     borderRadius: borderRadius.md,
     backgroundColor: colors.surface,
     paddingHorizontal: spacing.md,
+    transition: 'border-color 0.2s ease',
   },
   inputWrapperFocused: {
     borderColor: colors.primary,
     backgroundColor: colors.surface,
+    borderWidth: 2,
   },
   inputWrapperError: {
     borderColor: colors.error,
@@ -108,6 +110,7 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
     height: 52,
     fontSize: typography.fontSizeInput,
     color: colors.text,
+    fontWeight: typography.fontWeightRegular,
   },
   eyeButton: {
     padding: spacing.xs,
@@ -119,5 +122,6 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
     marginTop: spacing.xs,
     fontSize: typography.fontSizeXS,
     color: colors.error,
+    fontWeight: typography.fontWeightMedium,
   },
 });

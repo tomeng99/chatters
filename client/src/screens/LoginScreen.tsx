@@ -17,6 +17,7 @@ import Input from '../components/Input';
 import Card from '../components/Card';
 import Row from '../components/Row';
 import AppText from '../components/AppText';
+import Logo from '../components/Logo';
 import { spacing, shadows } from '../theme';
 import { useTheme } from '../context/ThemeContext';
 
@@ -54,11 +55,7 @@ export default function LoginScreen({ navigation }: Props): React.JSX.Element {
           keyboardShouldPersistTaps="handled"
         >
         <View style={styles.header}>
-          <View style={styles.logoContainer}>
-            <MaterialCommunityIcons name="chat-processing" size={40} color="#FFFFFF" />
-          </View>
-          <AppText variant="heading">Chatters</AppText>
-          <AppText variant="caption">Secure private messaging</AppText>
+          <Logo size="large" showText={true} />
         </View>
 
         <Card>
@@ -126,16 +123,6 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
   header: {
     alignItems: 'center',
     marginBottom: spacing.xl + 8,
-  },
-  logoContainer: {
-    width: 72,
-    height: 72,
-    borderRadius: 22,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.md,
-    ...shadows.md,
   },
   title: {
     marginBottom: spacing.lg,
