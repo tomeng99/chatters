@@ -160,11 +160,6 @@ export const animations = {
     normal: 250,
     slow: 350,
   },
-  easing: {
-    easeIn: 'ease-in',
-    easeOut: 'ease-out',
-    easeInOut: 'ease-in-out',
-  },
 };
 
 export const paperTheme = {

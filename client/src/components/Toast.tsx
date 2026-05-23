@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, Animated, StyleSheet, Pressable } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { spacing, borderRadius, shadows, typography } from '../theme';
@@ -22,6 +23,7 @@ export default function Toast({
   duration = 3000,
 }: ToastProps) {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const translateY = useRef(new Animated.Value(-100)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
@@ -100,13 +102,13 @@ export default function Toast({
       style={[
         styles.container,
         {
+          top: insets.top + spacing.md,
           transform: [{ translateY }],
           opacity,
         },
       ]}
     >
-      <Pressable
-        onPress={hideToast}
+      <View
         style={[
           styles.toast,
           {
@@ -119,7 +121,7 @@ export default function Toast({
         <Pressable onPress={hideToast} hitSlop={8}>
           <MaterialCommunityIcons name="close" size={18} color="#FFFFFF" />
         </Pressable>
-      </Pressable>
+      </View>
     </Animated.View>
   );
 }
@@ -127,7 +129,6 @@ export default function Toast({
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    top: 60,
     left: spacing.md,
     right: spacing.md,
     zIndex: 9999,

@@ -8,13 +8,11 @@ import AppText from './AppText';
 interface LogoProps {
   size?: 'small' | 'medium' | 'large';
   showText?: boolean;
-  variant?: 'gradient' | 'solid';
 }
 
 export default function Logo({
   size = 'medium',
   showText = true,
-  variant = 'gradient',
 }: LogoProps) {
   const { colors } = useTheme();
 
@@ -29,7 +27,7 @@ export default function Logo({
           {
             width: containerSize,
             height: containerSize,
-            backgroundColor: variant === 'gradient' ? colors.primary : colors.primary,
+            backgroundColor: colors.primary,
           },
         ]}
       >

@@ -18,7 +18,7 @@ import Card from '../components/Card';
 import Row from '../components/Row';
 import AppText from '../components/AppText';
 import Logo from '../components/Logo';
-import { spacing, shadows } from '../theme';
+import { spacing } from '../theme';
 import { useTheme } from '../context/ThemeContext';
 
 type Props = { navigation: StackNavigationProp<AuthStackParamList, 'Login'> };

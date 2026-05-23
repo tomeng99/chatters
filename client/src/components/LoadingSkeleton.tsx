@@ -78,9 +78,12 @@ export function ConversationListSkeleton() {
 }
 
 export function MessageListSkeleton() {
+  // Fixed widths to prevent flickering on re-render
+  const messageWidths = [180, 220, 160, 200, 240, 190];
+
   return (
     <View style={styles.container}>
-      {[1, 2, 3, 4, 5, 6].map((i) => (
+      {messageWidths.map((width, i) => (
         <View
           key={i}
           style={[
@@ -89,7 +92,7 @@ export function MessageListSkeleton() {
           ]}
         >
           <LoadingSkeleton
-            width={Math.random() * 100 + 150}
+            width={width}
             height={40}
             borderRadius={borderRadius.md}
           />

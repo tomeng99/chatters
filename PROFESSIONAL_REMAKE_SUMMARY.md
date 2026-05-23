@@ -85,8 +85,8 @@ The professional remake enhances the Chatters app with modern design patterns, s
 - 🎨 Color-coded with appropriate icons
 - ✨ Spring-based slide-down entrance animation
 - ⏱️ Auto-dismisses after 3 seconds (configurable)
-- 👆 Tap to dismiss manually
-- 📍 Positioned at top of screen with proper safe area handling
+- 👆 Tap close icon to dismiss manually
+- 📍 Positioned at top of screen with proper safe area handling using useSafeAreaInsets
 
 ### 7. Accessibility Improvements
 
