@@ -6,8 +6,9 @@ import {
   StyleSheet,
   ViewStyle,
   TextStyle,
+  Animated,
 } from 'react-native';
-import { typography, spacing, borderRadius } from '../theme';
+import { typography, spacing, borderRadius, shadows } from '../theme';
 import { useTheme } from '../context/ThemeContext';
 
 type Variant = 'primary' | 'secondary' | 'text';
@@ -34,42 +35,63 @@ export default function Button({
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const isDisabled = disabled || loading;
+  const scaleAnim = React.useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.96,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      friction: 3,
+      tension: 40,
+      useNativeDriver: true,
+    }).start();
+  };
 
   return (
-    <Pressable
-      onPress={onPress}
-      disabled={isDisabled}
-      style={({ pressed }) => [
-        styles.base,
-        variant === 'primary' && styles.primary,
-        variant === 'secondary' && styles.secondary,
-        variant === 'text' && styles.textVariant,
-        isDisabled && styles.disabled,
-        pressed && !isDisabled && variant === 'primary' && styles.primaryPressed,
-        pressed && !isDisabled && variant === 'secondary' && styles.secondaryPressed,
-        style,
-      ]}
-    >
-      {loading ? (
-        <ActivityIndicator
-          color={variant === 'primary' ? colors.onPrimary : colors.primary}
-          size="small"
-        />
-      ) : (
-        <Text
-          style={[
-            styles.label,
-            variant === 'primary' && styles.primaryLabel,
-            variant === 'secondary' && styles.secondaryLabel,
-            variant === 'text' && styles.textLabel,
-            isDisabled && styles.disabledLabel,
-            textStyle,
-          ]}
-        >
-          {title}
-        </Text>
-      )}
-    </Pressable>
+    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+      <Pressable
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        disabled={isDisabled}
+        style={({ pressed }) => [
+          styles.base,
+          variant === 'primary' && styles.primary,
+          variant === 'secondary' && styles.secondary,
+          variant === 'text' && styles.textVariant,
+          isDisabled && styles.disabled,
+          pressed && !isDisabled && variant === 'primary' && styles.primaryPressed,
+          pressed && !isDisabled && variant === 'secondary' && styles.secondaryPressed,
+          style,
+        ]}
+      >
+        {loading ? (
+          <ActivityIndicator
+            color={variant === 'primary' ? colors.onPrimary : colors.primary}
+            size="small"
+          />
+        ) : (
+          <Text
+            style={[
+              styles.label,
+              variant === 'primary' && styles.primaryLabel,
+              variant === 'secondary' && styles.secondaryLabel,
+              variant === 'text' && styles.textLabel,
+              isDisabled && styles.disabledLabel,
+              textStyle,
+            ]}
+          >
+            {title}
+          </Text>
+        )}
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -83,17 +105,20 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
   },
   primary: {
     backgroundColor: colors.primary,
+    ...shadows.sm,
   },
   primaryPressed: {
     backgroundColor: colors.primaryDark,
+    ...shadows.md,
   },
   secondary: {
     backgroundColor: 'transparent',
-    borderWidth: 1.5,
+    borderWidth: 2,
     borderColor: colors.primary,
   },
   secondaryPressed: {
-    backgroundColor: colors.primary + '08',
+    backgroundColor: colors.ripple,
+    borderColor: colors.primaryDark,
   },
   textVariant: {
     backgroundColor: 'transparent',
@@ -107,7 +132,7 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
   label: {
     fontSize: typography.fontSizeMD,
     fontWeight: typography.fontWeightSemiBold,
-    letterSpacing: 0.3,
+    letterSpacing: 0.5,
   },
   primaryLabel: {
     color: '#FFFFFF',

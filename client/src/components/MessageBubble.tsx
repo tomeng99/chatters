@@ -1,7 +1,7 @@
-import React, { useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Linking } from 'react-native';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Linking, Animated } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { typography, spacing, borderRadius } from '../theme';
+import { typography, spacing, borderRadius, animations } from '../theme';
 import { useTheme } from '../context/ThemeContext';
 import EncryptionBadge from './EncryptionBadge';
 import { API_BASE } from '../config';
@@ -97,6 +97,23 @@ export default function MessageBubble({
   const [viewerVisible, setViewerVisible] = useState(false);
   const emojiOnly = messageType === 'text' && isEmojiOnly(content);
   const containsLinks = messageType === 'text' && hasUrls(content);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: animations.duration.fast,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: animations.duration.fast,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   const resolveUrl = useCallback((url: string) => {
     if (url.startsWith('http://') || url.startsWith('https://')) return url;
@@ -214,41 +231,48 @@ export default function MessageBubble({
   };
 
   return (
-    <View style={[styles.row, isSent ? styles.rowSent : styles.rowReceived]}>
-      <View
-        style={[
-          styles.bubble,
-          isSent ? styles.bubbleSent : styles.bubbleReceived,
-          isCritical && styles.bubbleCritical,
-          emojiOnly && styles.emojiBubble,
-          messageType === 'image' && !imageError && styles.mediaBubble,
-          messageType === 'video' && styles.mediaBubble,
-        ]}
-      >
-        {isCritical && (
-          <View style={styles.criticalBadge}>
-            <MaterialCommunityIcons
-              name="alert-circle"
-              size={12}
-              color={isSent ? 'rgba(255,255,255,0.85)' : colors.error}
-            />
-            <Text style={[styles.criticalLabel, isSent ? styles.criticalLabelSent : styles.criticalLabelReceived]}>Critical</Text>
-          </View>
-        )}
-        {showSender && !isSent && senderUsername ? (
-          <Text style={styles.senderName}>{senderUsername}</Text>
-        ) : null}
-        {renderContent()}
-        <View style={styles.meta}>
-          {isEncrypted && (
-            <EncryptionBadge color={isSent ? 'rgba(255,255,255,0.6)' : colors.textTertiary} size={10} />
+    <Animated.View
+      style={{
+        opacity: fadeAnim,
+        transform: [{ translateY: slideAnim }],
+      }}
+    >
+      <View style={[styles.row, isSent ? styles.rowSent : styles.rowReceived]}>
+        <View
+          style={[
+            styles.bubble,
+            isSent ? styles.bubbleSent : styles.bubbleReceived,
+            isCritical && styles.bubbleCritical,
+            emojiOnly && styles.emojiBubble,
+            messageType === 'image' && !imageError && styles.mediaBubble,
+            messageType === 'video' && styles.mediaBubble,
+          ]}
+        >
+          {isCritical && (
+            <View style={styles.criticalBadge}>
+              <MaterialCommunityIcons
+                name="alert-circle"
+                size={12}
+                color={isSent ? 'rgba(255,255,255,0.85)' : colors.error}
+              />
+              <Text style={[styles.criticalLabel, isSent ? styles.criticalLabelSent : styles.criticalLabelReceived]}>Critical</Text>
+            </View>
           )}
-          <Text style={[styles.time, isSent ? styles.timeSent : styles.timeReceived]}>
-            {formatTime(createdAt)}
-          </Text>
+          {showSender && !isSent && senderUsername ? (
+            <Text style={styles.senderName}>{senderUsername}</Text>
+          ) : null}
+          {renderContent()}
+          <View style={styles.meta}>
+            {isEncrypted && (
+              <EncryptionBadge color={isSent ? 'rgba(255,255,255,0.6)' : colors.textTertiary} size={10} />
+            )}
+            <Text style={[styles.time, isSent ? styles.timeSent : styles.timeReceived]}>
+              {formatTime(createdAt)}
+            </Text>
+          </View>
         </View>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
