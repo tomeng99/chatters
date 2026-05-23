@@ -44,19 +44,20 @@ export default function LoadingSkeleton({
   });
 
   return (
-    <Animated.View
-      style={[
-        styles.skeleton,
-        {
-          width,
-          height,
-          borderRadius: radius,
-          backgroundColor: colors.surfaceSecondary,
-          opacity,
-        },
-        style,
-      ]}
-    />
+    <View style={[{ width: width as any, height, borderRadius: radius }, style]}>
+      <Animated.View
+        style={[
+          styles.skeleton,
+          {
+            width: '100%',
+            height: '100%',
+            borderRadius: radius,
+            backgroundColor: colors.surfaceSecondary,
+          },
+          { opacity },
+        ]}
+      />
+    </View>
   );
 }
 

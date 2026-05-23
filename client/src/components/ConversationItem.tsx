@@ -1,8 +1,8 @@
-import React, { useMemo } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import React, { useMemo, useEffect, useRef } from 'react';
+import { View, Text, Pressable, StyleSheet, Animated } from 'react-native';
 import Avatar from './Avatar';
 import EncryptionBadge from './EncryptionBadge';
-import { typography, spacing, borderRadius } from '../theme';
+import { typography, spacing, borderRadius, animations } from '../theme';
 import { useTheme } from '../context/ThemeContext';
 
 interface ConversationItemProps {
@@ -39,36 +39,64 @@ export default function ConversationItem({
 }: ConversationItemProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: animations.duration.normal,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: animations.duration.normal,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
   return (
-    <Pressable
-      style={({ pressed }) => [styles.container, pressed && styles.containerPressed]}
-      onPress={onPress}
+    <Animated.View
+      style={{
+        opacity: fadeAnim,
+        transform: [{ translateY: slideAnim }],
+      }}
     >
-      <Avatar username={name} size={52} />
-      <View style={styles.content}>
-        <View style={styles.topRow}>
-          <Text style={styles.name} numberOfLines={1}>
-            {name}
-          </Text>
-          {lastMessageAt ? (
-            <Text style={styles.time}>{formatTime(lastMessageAt)}</Text>
-          ) : null}
-        </View>
-        <View style={styles.bottomRow}>
-          <View style={styles.previewRow}>
-            {isEncrypted && <EncryptionBadge size={11} color={colors.textTertiary} />}
-            <Text style={styles.lastMessage} numberOfLines={1}>
-              {lastMessage || 'No messages yet'}
+      <Pressable
+        style={({ pressed }) => [styles.container, pressed && styles.containerPressed]}
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={`Conversation with ${name}`}
+        accessibilityHint={unreadCount > 0 ? `${unreadCount} unread messages` : undefined}
+      >
+        <Avatar username={name} size={52} />
+        <View style={styles.content}>
+          <View style={styles.topRow}>
+            <Text style={styles.name} numberOfLines={1}>
+              {name}
             </Text>
+            {lastMessageAt ? (
+              <Text style={styles.time}>{formatTime(lastMessageAt)}</Text>
+            ) : null}
           </View>
-          {unreadCount > 0 && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+          <View style={styles.bottomRow}>
+            <View style={styles.previewRow}>
+              {isEncrypted && <EncryptionBadge size={11} color={colors.textTertiary} />}
+              <Text style={styles.lastMessage} numberOfLines={1}>
+                {lastMessage || 'No messages yet'}
+              </Text>
             </View>
-          )}
+            {unreadCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+              </View>
+            )}
+          </View>
         </View>
-      </View>
-    </Pressable>
+      </Pressable>
+    </Animated.View>
   );
 }
 

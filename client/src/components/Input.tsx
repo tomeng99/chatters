@@ -95,7 +95,6 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
     borderRadius: borderRadius.md,
     backgroundColor: colors.surface,
     paddingHorizontal: spacing.md,
-    transition: 'border-color 0.2s ease',
   },
   inputWrapperFocused: {
     borderColor: colors.primary,
