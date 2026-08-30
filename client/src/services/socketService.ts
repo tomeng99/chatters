@@ -27,7 +27,14 @@ interface NotificationData {
 }
 
 type MessageHandler = (message: Message) => void;
-type TypingHandler = (data: { userId: string; username: string; isTyping: boolean }) => void;
+interface TypingData {
+  userId: string;
+  username: string;
+  isTyping: boolean;
+  conversationId: string;
+}
+
+type TypingHandler = (data: TypingData) => void;
 type NotificationHandler = (data: NotificationData) => void;
 
 class SocketService {
@@ -66,11 +73,10 @@ class SocketService {
       this.globalMessageHandlers.forEach((h) => h(message));
     });
 
-    this.socket.on('user_typing', (data: { userId: string; username: string; isTyping: boolean; conversationId?: string }) => {
-      if (data.conversationId) {
-        const handlers = this.typingHandlers.get(data.conversationId) || [];
-        handlers.forEach((h) => h(data));
-      }
+    this.socket.on('user_typing', (data: TypingData) => {
+      if (!data?.conversationId) return;
+      const handlers = this.typingHandlers.get(data.conversationId) || [];
+      handlers.forEach((h) => h(data));
     });
 
     this.socket.on('notification', (data: NotificationData) => {
@@ -166,4 +172,4 @@ class SocketService {
 }
 
 export const socketService = new SocketService();
-export type { Message, NotificationData };
+export type { Message, NotificationData, TypingData };

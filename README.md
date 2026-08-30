@@ -8,6 +8,7 @@ A secure, end-to-end encrypted messenger application built with React Native (+ 
 - 💬 **1:1 and group chats**
 - 🌐 **Works on mobile AND web** (React Native + React Native Web)
 - ⚡ **Real-time messaging** via Socket.io WebSockets
+- ⌨️ **Live typing indicators** in 1:1 and group chats
 - 📸 **File & media sharing** — images, videos, and PDFs up to 20 MB
 - 🔔 **Push notifications** with per-user notification preferences
 - 🏷️ **@mentions and critical messages** for high-priority alerts

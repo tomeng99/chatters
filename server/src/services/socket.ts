@@ -37,6 +37,10 @@ export function setupSocket(io: Server): void {
     const authSocket = socket as AuthenticatedSocket;
     console.log(`User connected: ${authSocket.user.username} (${authSocket.id})`);
 
+    // Conversations this socket has an outstanding "typing" broadcast in, so a
+    // disconnect can retract exactly those and nothing else.
+    const typingConversationIds = new Set<string>();
+
     try {
       const result = await pool.query(
         'SELECT conversation_id FROM conversation_members WHERE user_id = $1',
@@ -230,14 +234,36 @@ export function setupSocket(io: Server): void {
         );
         if (memberResult.rows.length === 0) return;
 
+        const typing = Boolean(isTyping);
+        if (typing) {
+          typingConversationIds.add(conversationId);
+        } else {
+          typingConversationIds.delete(conversationId);
+        }
+
         authSocket.to(`conversation:${conversationId}`).emit('user_typing', {
           userId: authSocket.user.id,
           username: authSocket.user.username,
-          isTyping,
+          isTyping: typing,
+          conversationId,
         });
       } catch (err) {
         console.error('Typing event error:', err);
       }
+    });
+
+    // Retract any outstanding typing broadcast before the socket leaves its
+    // rooms, so disconnecting mid-sentence does not leave a stuck indicator.
+    authSocket.on('disconnecting', () => {
+      for (const conversationId of typingConversationIds) {
+        authSocket.to(`conversation:${conversationId}`).emit('user_typing', {
+          userId: authSocket.user.id,
+          username: authSocket.user.username,
+          isTyping: false,
+          conversationId,
+        });
+      }
+      typingConversationIds.clear();
     });
 
     authSocket.on('disconnect', () => {
