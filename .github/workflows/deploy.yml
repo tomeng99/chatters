@@ -46,6 +46,7 @@ jobs:
             ${{ env.CLIENT_IMAGE }}:${{ github.sha }}
           build-args: |
             EXPO_PUBLIC_API_URL=${{ secrets.EXPO_PUBLIC_API_URL }}
+            UMAMI_WEBSITE_ID=74559856-5ef1-4234-ad37-0fd2f5012fbc
 
       - name: Prune old GHCR images (keep 2 newest)
         env:
