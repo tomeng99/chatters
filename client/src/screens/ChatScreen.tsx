@@ -22,6 +22,7 @@ import { AppStackParamList } from '../navigation/AppNavigator';
 import { useAuthStore } from '../store/authStore';
 import { socketService, Message } from '../services/socketService';
 import MessageBubble from '../components/MessageBubble';
+import TypingIndicator from '../components/TypingIndicator';
 import EncryptionBadge from '../components/EncryptionBadge';
 import {
   encryptMessage,
@@ -55,6 +56,14 @@ interface DisplayMessage extends Message {
 
 type MessageType = 'text' | 'image' | 'video' | 'file';
 
+// Minimum gap between outgoing "still typing" pings, so a fast typist sends one
+// socket event every couple of seconds instead of one per keystroke.
+const TYPING_THROTTLE_MS = 2000;
+// Idle time after the last keystroke before we tell the room we stopped.
+const TYPING_IDLE_MS = 1500;
+// Safety net: drop a peer's indicator if their "stopped" event never arrives.
+const TYPING_EXPIRY_MS = 6000;
+
 export default function ChatScreen({ navigation, route }: Props) {
   const { conversationId, conversationName, isGroup, members } = route.params;
   const { token, user, keyPair } = useAuthStore();
@@ -67,9 +76,14 @@ export default function ChatScreen({ navigation, route }: Props) {
   const [sending, setSending] = useState(false);
   const [isCritical, setIsCritical] = useState(false);
   const [groupSharedKey, setGroupSharedKey] = useState<Uint8Array | null>(null);
+  // userId -> username for peers currently typing in this conversation.
+  const [typingUsers, setTypingUsers] = useState<Record<string, string>>({});
   const flatListRef = useRef<FlatList>(null);
   const isNearBottomRef = useRef(true);
-  const typingTimeoutRef = useRef<any>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Timestamp of our last outgoing "typing: true"; 0 means we are not typing.
+  const lastTypingEmitRef = useRef(0);
+  const typingExpiryRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const publicKeyCacheRef = useRef<Map<string, string | null>>(new Map());
 
   const parseTaggedUserIds = useCallback(
@@ -90,6 +104,64 @@ export default function ChatScreen({ navigation, route }: Props) {
     },
     [members, user?.id]
   );
+
+  const clearTypingUser = useCallback((userId: string) => {
+    const timer = typingExpiryRef.current.get(userId);
+    if (timer) {
+      clearTimeout(timer);
+      typingExpiryRef.current.delete(userId);
+    }
+    setTypingUsers((prev) => {
+      if (!(userId in prev)) return prev;
+      const next = { ...prev };
+      delete next[userId];
+      return next;
+    });
+  }, []);
+
+  // Tell the room we stopped typing, but only if we ever told them we started.
+  const stopTyping = useCallback(() => {
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
+    if (lastTypingEmitRef.current !== 0) {
+      lastTypingEmitRef.current = 0;
+      socketService.emitTyping(conversationId, false);
+    }
+  }, [conversationId]);
+
+  useEffect(() => {
+    const unsub = socketService.onTyping(conversationId, (data) => {
+      if (data.userId === user?.id) return;
+
+      if (!data.isTyping) {
+        clearTypingUser(data.userId);
+        return;
+      }
+
+      const existing = typingExpiryRef.current.get(data.userId);
+      if (existing) clearTimeout(existing);
+      typingExpiryRef.current.set(
+        data.userId,
+        setTimeout(() => clearTypingUser(data.userId), TYPING_EXPIRY_MS)
+      );
+
+      setTypingUsers((prev) =>
+        prev[data.userId] === data.username ? prev : { ...prev, [data.userId]: data.username }
+      );
+    });
+
+    const expiryTimers = typingExpiryRef.current;
+    return () => {
+      unsub();
+      expiryTimers.forEach(clearTimeout);
+      expiryTimers.clear();
+    };
+  }, [conversationId, user?.id, clearTypingUser]);
+
+  // Leaving the screen mid-sentence should not leave a stuck indicator for peers.
+  useEffect(() => stopTyping, [stopTyping]);
 
   useEffect(() => {
     navigation.setOptions({
@@ -313,6 +385,8 @@ export default function ChatScreen({ navigation, route }: Props) {
     socketService.joinConversation(conversationId);
 
     const unsub = socketService.onMessage(conversationId, async (msg) => {
+      // Their message landed, so they are no longer typing it.
+      clearTypingUser(msg.sender.id);
       const displayMsg = await decryptDisplayMessage(msg);
       setMessages((prev) => {
         if (prev.some((m) => m.id === displayMsg.id)) return prev;
@@ -321,7 +395,7 @@ export default function ChatScreen({ navigation, route }: Props) {
     });
 
     return unsub;
-  }, [conversationId, fetchMessages, decryptDisplayMessage]);
+  }, [conversationId, fetchMessages, decryptDisplayMessage, clearTypingUser]);
 
   useEffect(() => {
     if (messages.length > 0 && isNearBottomRef.current) {
@@ -334,6 +408,7 @@ export default function ChatScreen({ navigation, route }: Props) {
     if (!text || sending) return;
     setInputText('');
     setSending(true);
+    stopTyping();
 
     const messageCritical = isCritical;
     const taggedUserIds = parseTaggedUserIds(text);
@@ -398,11 +473,14 @@ export default function ChatScreen({ navigation, route }: Props) {
 
   const handleInputChange = (text: string) => {
     setInputText(text);
-    socketService.emitTyping(conversationId, true);
+
+    const now = Date.now();
+    if (now - lastTypingEmitRef.current > TYPING_THROTTLE_MS) {
+      lastTypingEmitRef.current = now;
+      socketService.emitTyping(conversationId, true);
+    }
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    typingTimeoutRef.current = setTimeout(() => {
-      socketService.emitTyping(conversationId, false);
-    }, 1500);
+    typingTimeoutRef.current = setTimeout(stopTyping, TYPING_IDLE_MS);
   };
 
   const handleListScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -556,6 +634,8 @@ export default function ChatScreen({ navigation, route }: Props) {
 
   const [showAttachMenu, setShowAttachMenu] = useState(false);
 
+  const typingUsernames = useMemo(() => Object.values(typingUsers), [typingUsers]);
+
   if (loading) {
     return (
       <ScreenContainer centered>
@@ -611,6 +691,8 @@ export default function ChatScreen({ navigation, route }: Props) {
           }}
         />
       </View>
+
+      <TypingIndicator usernames={typingUsernames} showNames={isGroup} />
 
       <View style={[styles.inputBarContainer, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
         {showAttachMenu && (
