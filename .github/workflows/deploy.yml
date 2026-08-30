@@ -1,16 +1,19 @@
-name: Build and Deploy
+name: Build and Push
 
 on:
   push:
     branches:
       - main
 
+# This workflow builds and publishes images only. Deployment is GitOps:
+# ArgoCD syncs tomeng99/operations, so going live means bumping the image tag
+# in apps/chatters/prod/deployments.yaml there.
 env:
   SERVER_IMAGE: ghcr.io/tomeng99/chatters
   CLIENT_IMAGE: ghcr.io/tomeng99/chatters-client
 
 jobs:
-  build-and-deploy:
+  build-and-push:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -60,29 +63,3 @@ jobs:
               gh api --method DELETE "/user/packages/container/${pkg}/versions/${version_id}" || true
             done
           done
-
-      - name: Copy compose file to VPS
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT || '22' }}
-          source: docker-compose.yml
-          target: ${{ secrets.APP_DIR }}
-
-      - name: Deploy on VPS via SSH
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT || '22' }}
-          script: |
-            set -e
-            cd ${{ secrets.APP_DIR }}
-            echo '${{ secrets.GHCR_PAT }}' | podman login ghcr.io -u '${{ secrets.GHCR_USER }}' --password-stdin
-            podman compose pull
-            podman compose down
-            podman compose up -d
-            podman image prune -af
