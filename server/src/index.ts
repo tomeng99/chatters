@@ -65,8 +65,17 @@ const corsOptions: cors.CorsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '1mb' }));
 
-// Serve uploaded files statically
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// Serve uploaded files statically. The bytes are user-supplied, so tell
+// browsers to take the Content-Type at face value instead of sniffing their
+// way to a more dangerous interpretation of the same file.
+app.use(
+  '/uploads',
+  express.static(path.join(__dirname, '../uploads'), {
+    setHeaders: (res) => {
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+    },
+  }),
+);
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
