@@ -17,6 +17,37 @@ import { setupSocket } from './services/socket';
 const app = express();
 const server = http.createServer(app);
 
+// Behind a reverse proxy (the Caddyfile in deploy/, or an ingress controller)
+// every request reaches Express from the proxy's own address, so req.ip is the
+// same value for every user. express-rate-limit keys its buckets on req.ip, so
+// all clients share a single bucket: 20 requests to /api/auth from anyone locks
+// out logins for everyone. Trusting the proxy makes req.ip the real client
+// address again.
+//
+// The trusted set must stay narrow. With 'trust proxy' set to true, Express
+// takes the leftmost X-Forwarded-For entry unconditionally and any client can
+// forge the header to get a fresh bucket per request, which removes the rate
+// limit entirely. Listing address ranges instead makes Express walk the header
+// right-to-left and stop at the first hop that is not trusted, so a forged
+// prefix is ignored. The default covers a proxy on loopback or on a container /
+// cluster private network, which is where every deployment in this repo puts
+// it; override TRUST_PROXY with exact addresses to narrow it further.
+function parseTrustProxy(raw: string | undefined): boolean | number | string[] {
+  const value = raw?.trim();
+  if (!value) return ['loopback', 'uniquelocal'];
+  if (value === 'false') return false;
+  if (value === 'true') {
+    console.warn(
+      'TRUST_PROXY=true trusts any client-supplied X-Forwarded-For header, which lets callers bypass rate limiting. Prefer a comma-separated list of proxy addresses or CIDR ranges.',
+    );
+    return true;
+  }
+  if (/^\d+$/.test(value)) return parseInt(value, 10);
+  return value.split(',').map((v) => v.trim()).filter(Boolean);
+}
+
+app.set('trust proxy', parseTrustProxy(process.env.TRUST_PROXY));
+
 const rawAllowedOrigins = process.env.ALLOWED_ORIGINS;
 const parsedAllowedOrigins = rawAllowedOrigins
   ? rawAllowedOrigins.split(',').map((o) => o.trim()).filter(Boolean)
