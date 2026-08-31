@@ -107,6 +107,7 @@ podman compose down
 | `POSTGRES_POOL_MAX`   | `20`                                | Maximum pool connections       |
 | `POSTGRES_SSL`        | *(unset)*                           | Set `true` to enable SSL       |
 | `ALLOWED_ORIGINS`     | `http://localhost:8081,...`          | Comma-separated allowed origins|
+| `TRUST_PROXY`         | `loopback,uniquelocal`              | Reverse-proxy addresses to trust for the real client IP. Comma-separated addresses/CIDRs, a hop count, or `false` to disable. Avoid `true` — it lets clients forge `X-Forwarded-For` and bypass rate limiting. |
 
 ### Client Environment Variables
 
