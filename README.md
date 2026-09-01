@@ -9,6 +9,7 @@ A secure, end-to-end encrypted messenger application built with React Native (+ 
 - 🌐 **Works on mobile AND web** (React Native + React Native Web)
 - ⚡ **Real-time messaging** via Socket.io WebSockets
 - ⌨️ **Live typing indicators** in 1:1 and group chats
+- 🗑️ **Delete for everyone** — retract a message you sent; the server drops the stored ciphertext
 - 📸 **File & media sharing** — images, videos, and PDFs up to 20 MB
 - 🔔 **Push notifications** with per-user notification preferences
 - 🏷️ **@mentions and critical messages** for high-priority alerts
@@ -159,6 +160,7 @@ podman compose down
 - **1:1 chats**: Messages are encrypted with `nacl.box` using the recipient's public key and the sender's secret key.
 - **Group chats**: The conversation creator generates a random shared secret and distributes it to each member by encrypting a copy with each member's public key (using `nacl.box`). The server stores only these encrypted key envelopes. No member's device can decrypt another member's copy. Each member fetches and decrypts their own envelope on first load.
 - **Server role**: The server stores only ciphertext — it cannot read message content.
+- **Deleting a message**: Only the author can retract a message. The server clears the stored ciphertext, nonce, filename and mention rows, leaving a tombstone (sender, sent time, deleted time) so the thread stays coherent for everyone. Note that for media messages the underlying uploaded file in `uploads/` is not removed — only the message pointing at it is.
 
 ---
 
@@ -185,6 +187,7 @@ Components import exclusively from theme — no magic numbers in screens.
 | `send_message`     | See payload below         | Send a message    |
 | `join_conversation`| `conversationId`          | Join a room       |
 | `typing`           | `{conversationId, isTyping}` | Typing indicator |
+| `delete_message`   | `{messageId}`             | Retract a message you sent |
 
 **`send_message` payload:**
 ```json
@@ -206,6 +209,7 @@ Components import exclusively from theme — no magic numbers in screens.
 |---------------|-----------------------|-------------------------------|
 | `new_message` | See payload below     | New message received          |
 | `user_typing` | See payload below     | Typing notification           |
+| `message_deleted` | See payload below | A message was retracted       |
 | `notification`| See payload below     | In-app notification           |
 
 **`new_message` payload:**
@@ -228,6 +232,11 @@ Components import exclusively from theme — no magic numbers in screens.
 **`user_typing` payload:**
 ```json
 { "userId": "string", "username": "string", "isTyping": "boolean", "conversationId": "string" }
+```
+
+**`message_deleted` payload:**
+```json
+{ "messageId": "string", "conversationId": "string", "deletedAt": "number (unix timestamp)" }
 ```
 
 **`notification` payload:**

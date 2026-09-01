@@ -24,6 +24,8 @@ import { socketService, Message } from '../services/socketService';
 import MessageBubble from '../components/MessageBubble';
 import TypingIndicator from '../components/TypingIndicator';
 import EncryptionBadge from '../components/EncryptionBadge';
+import ConfirmDialog from '../components/ConfirmDialog';
+import Toast from '../components/Toast';
 import {
   encryptMessage,
   decryptMessage,
@@ -78,6 +80,10 @@ export default function ChatScreen({ navigation, route }: Props) {
   const [groupSharedKey, setGroupSharedKey] = useState<Uint8Array | null>(null);
   // userId -> username for peers currently typing in this conversation.
   const [typingUsers, setTypingUsers] = useState<Record<string, string>>({});
+  // Id of the message awaiting delete confirmation, if any.
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const isNearBottomRef = useRef(true);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -397,6 +403,64 @@ export default function ChatScreen({ navigation, route }: Props) {
     return unsub;
   }, [conversationId, fetchMessages, decryptDisplayMessage, clearTypingUser]);
 
+  // Replace a message with its tombstone in place, so the thread keeps its shape.
+  const markMessageDeleted = useCallback((messageId: string, deletedAt: number) => {
+    setMessages((prev) => {
+      let changed = false;
+      const next = prev.map((m) => {
+        if (m.id !== messageId || m.deletedAt) return m;
+        changed = true;
+        return {
+          ...m,
+          deletedAt,
+          content: '',
+          decryptedContent: '',
+          iv: null,
+          isEncrypted: false,
+          isCritical: false,
+          messageType: 'text' as const,
+          fileName: null,
+        };
+      });
+      return changed ? next : prev;
+    });
+  }, []);
+
+  useEffect(() => {
+    const unsub = socketService.onMessageDeleted(conversationId, (data) => {
+      markMessageDeleted(data.messageId, data.deletedAt);
+    });
+    return unsub;
+  }, [conversationId, markMessageDeleted]);
+
+  const handleLongPressMessage = useCallback(
+    (msg: DisplayMessage) => {
+      // Retracting is the sender's call alone, and only once.
+      if (msg.sender.id !== user?.id || msg.deletedAt) return;
+      setPendingDeleteId(msg.id);
+    },
+    [user?.id]
+  );
+
+  const handleConfirmDelete = useCallback(async () => {
+    const messageId = pendingDeleteId;
+    if (!messageId || deleting) return;
+    setDeleting(true);
+    try {
+      const result = await socketService.deleteMessage(messageId);
+      if (result.success) {
+        // The server broadcasts to the room including us, but applying it here
+        // too means the bubble updates even if that broadcast is missed.
+        markMessageDeleted(messageId, Math.floor(Date.now() / 1000));
+      } else {
+        setDeleteError(true);
+      }
+    } finally {
+      setDeleting(false);
+      setPendingDeleteId(null);
+    }
+  }, [pendingDeleteId, deleting, markMessageDeleted]);
+
   useEffect(() => {
     if (messages.length > 0 && isNearBottomRef.current) {
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
@@ -661,6 +725,7 @@ export default function ChatScreen({ navigation, route }: Props) {
             const showSender =
               isGroup && !isSent &&
               (index === 0 || messages[index - 1]?.sender.id !== item.sender.id);
+            const isDeleted = Boolean(item.deletedAt);
             return (
               <MessageBubble
                 content={item.decryptedContent ?? item.content}
@@ -672,6 +737,10 @@ export default function ChatScreen({ navigation, route }: Props) {
                 showSender={showSender}
                 messageType={item.messageType}
                 fileName={item.fileName}
+                isDeleted={isDeleted}
+                onLongPress={
+                  isSent && !isDeleted ? () => handleLongPressMessage(item) : undefined
+                }
               />
             );
           }}
@@ -760,6 +829,24 @@ export default function ChatScreen({ navigation, route }: Props) {
           </Pressable>
         </View>
       </View>
+
+      <ConfirmDialog
+        visible={pendingDeleteId !== null}
+        title="Delete message?"
+        message="This removes it for everyone in this chat and cannot be undone."
+        confirmLabel="Delete"
+        destructive
+        confirmDisabled={deleting}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setPendingDeleteId(null)}
+      />
+
+      <Toast
+        visible={deleteError}
+        type="error"
+        message="Could not delete the message. Check your connection and try again."
+        onDismiss={() => setDeleteError(false)}
+      />
     </KeyboardAvoidingView>
   );
 }

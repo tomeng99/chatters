@@ -18,6 +18,7 @@ router.get('/', async (req: Request, res: Response) => {
         m.content AS last_message_content,
         m.created_at AS last_message_at,
         m.is_encrypted AS last_message_encrypted,
+        m.deleted_at AS last_message_deleted_at,
         u.username AS last_message_sender,
         m.sender_id AS last_message_sender_id
       FROM conversations c
@@ -42,6 +43,7 @@ router.get('/', async (req: Request, res: Response) => {
         last_message_content: string | null;
         last_message_at: number | null;
         last_message_encrypted: boolean | null;
+        last_message_deleted_at: number | null;
         last_message_sender: string | null;
         last_message_sender_id: string | null;
       }) => {
@@ -59,11 +61,14 @@ router.get('/', async (req: Request, res: Response) => {
           isGroup: Boolean(conv.is_group),
           createdAt: conv.created_at,
           members: membersResult.rows,
-          lastMessage: conv.last_message_content
+          // Keyed off the timestamp, not the content: a retracted message has
+          // empty content but is still the conversation's most recent entry.
+          lastMessage: conv.last_message_at !== null
             ? {
                 content: conv.last_message_content,
                 createdAt: conv.last_message_at,
                 isEncrypted: Boolean(conv.last_message_encrypted),
+                deletedAt: conv.last_message_deleted_at,
                 senderUsername: conv.last_message_sender,
                 senderId: conv.last_message_sender_id,
               }
@@ -204,7 +209,7 @@ router.get('/:id/messages', async (req: Request, res: Response) => {
     const params: (string | number)[] = [id as string];
     let paramCount = 1;
     let query = `
-      SELECT m.id, m.conversation_id, m.content, m.iv, m.is_encrypted, m.is_critical, m.message_type, m.file_name, m.created_at,
+      SELECT m.id, m.conversation_id, m.content, m.iv, m.is_encrypted, m.is_critical, m.message_type, m.file_name, m.deleted_at, m.created_at,
              u.id AS sender_id, u.username AS sender_username
       FROM messages m
       JOIN users u ON u.id = m.sender_id
@@ -232,6 +237,7 @@ router.get('/:id/messages', async (req: Request, res: Response) => {
       is_critical: boolean;
       message_type: string;
       file_name: string | null;
+      deleted_at: number | null;
       created_at: number;
       sender_id: string;
       sender_username: string;
@@ -262,6 +268,7 @@ router.get('/:id/messages', async (req: Request, res: Response) => {
         taggedUserIds: tagsByMessage[msg.id] || [],
         messageType: msg.message_type || 'text',
         fileName: msg.file_name || null,
+        deletedAt: msg.deleted_at ?? null,
         createdAt: msg.created_at,
         sender: { id: msg.sender_id, username: msg.sender_username },
       }))

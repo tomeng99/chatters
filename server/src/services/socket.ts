@@ -226,6 +226,81 @@ export function setupSocket(io: Server): void {
       }
     });
 
+    authSocket.on('delete_message', async (
+      data: { messageId?: string },
+      callback?: (response: { success?: boolean; error?: string }) => void
+    ) => {
+      try {
+        const messageId = data?.messageId;
+        if (!messageId) {
+          if (callback) callback({ error: 'messageId is required' });
+          return;
+        }
+
+        const messageResult = await pool.query(
+          'SELECT conversation_id, sender_id, deleted_at FROM messages WHERE id = $1',
+          [messageId]
+        );
+        const message = messageResult.rows[0] as
+          | { conversation_id: string; sender_id: string; deleted_at: number | null }
+          | undefined;
+
+        if (!message) {
+          if (callback) callback({ error: 'Message not found' });
+          return;
+        }
+
+        // Only the author may retract a message. Authorship implies membership,
+        // so this is strictly narrower than the send_message membership check.
+        if (message.sender_id !== authSocket.user.id) {
+          if (callback) callback({ error: 'Only the sender can delete this message' });
+          return;
+        }
+
+        // Already retracted — nothing to broadcast, but the caller got what it wanted.
+        if (message.deleted_at) {
+          if (callback) callback({ success: true });
+          return;
+        }
+
+        const deletedAt = getUnixTimestamp();
+
+        // Drop the stored ciphertext instead of only flagging the row: on a
+        // messenger that keeps nothing readable server-side, a retracted message
+        // should stop being held at all. What is left is a tombstone: who sent it,
+        // when, and when it was retracted.
+        const client = await pool.connect();
+        try {
+          await client.query('BEGIN');
+          await client.query(
+            `UPDATE messages
+             SET content = '', iv = NULL, file_name = NULL, is_encrypted = FALSE,
+                 is_critical = FALSE, message_type = 'text', deleted_at = $2
+             WHERE id = $1`,
+            [messageId, deletedAt]
+          );
+          await client.query('DELETE FROM message_tags WHERE message_id = $1', [messageId]);
+          await client.query('COMMIT');
+        } catch (err) {
+          await client.query('ROLLBACK');
+          throw err;
+        } finally {
+          client.release();
+        }
+
+        io.to(`conversation:${message.conversation_id}`).emit('message_deleted', {
+          messageId,
+          conversationId: message.conversation_id,
+          deletedAt,
+        });
+
+        if (callback) callback({ success: true });
+      } catch (err) {
+        console.error('Delete message error:', err);
+        if (callback) callback({ error: 'Failed to delete message' });
+      }
+    });
+
     authSocket.on('typing', async ({ conversationId, isTyping }: { conversationId: string; isTyping: boolean }) => {
       try {
         const memberResult = await pool.query(

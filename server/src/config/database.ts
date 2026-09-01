@@ -75,6 +75,7 @@ export async function initializeDatabase() {
         is_critical BOOLEAN NOT NULL DEFAULT FALSE,
         message_type TEXT NOT NULL DEFAULT 'text',
         file_name TEXT,
+        deleted_at BIGINT,
         created_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
         FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
         FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE
@@ -111,6 +112,12 @@ export async function initializeDatabase() {
         END IF;
       END $$
     `);
+
+    // Add deleted_at column if it doesn't exist (migration for existing DBs).
+    // NULL means the message is live; a timestamp means the sender retracted it.
+    await client.query(
+      'ALTER TABLE messages ADD COLUMN IF NOT EXISTS deleted_at BIGINT'
+    );
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS message_tags (

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Linking, Animated } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Linking, Animated, Pressable } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { typography, spacing, borderRadius, animations } from '../theme';
 import { useTheme } from '../context/ThemeContext';
@@ -17,6 +17,8 @@ interface MessageBubbleProps {
   showSender?: boolean;
   messageType?: 'text' | 'image' | 'video' | 'file';
   fileName?: string | null;
+  isDeleted?: boolean;
+  onLongPress?: () => void;
 }
 
 function formatTime(ts: number): string {
@@ -90,13 +92,15 @@ export default function MessageBubble({
   showSender = false,
   messageType = 'text',
   fileName,
+  isDeleted = false,
+  onLongPress,
 }: MessageBubbleProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [imageError, setImageError] = useState(false);
   const [viewerVisible, setViewerVisible] = useState(false);
-  const emojiOnly = messageType === 'text' && isEmojiOnly(content);
-  const containsLinks = messageType === 'text' && hasUrls(content);
+  const emojiOnly = !isDeleted && messageType === 'text' && isEmojiOnly(content);
+  const containsLinks = !isDeleted && messageType === 'text' && hasUrls(content);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
 
@@ -124,6 +128,16 @@ export default function MessageBubble({
   const closeViewer = useCallback(() => setViewerVisible(false), []);
 
   const renderContent = () => {
+    // A retracted message keeps its place in the thread, but nothing of what it said.
+    if (isDeleted) {
+      return (
+        <View style={styles.deletedContainer}>
+          <MaterialCommunityIcons name="cancel" size={13} color={colors.textTertiary} />
+          <Text style={styles.deletedText}>This message was deleted</Text>
+        </View>
+      );
+    }
+
     if (messageType === 'image' && !imageError) {
       return (
         <>
@@ -230,6 +244,52 @@ export default function MessageBubble({
     );
   };
 
+  // Same style array either way, so adding the long-press affordance does not
+  // move the bubble: only the element type changes.
+  const bubbleStyle = [
+    styles.bubble,
+    isSent ? styles.bubbleSent : styles.bubbleReceived,
+    isCritical && !isDeleted && styles.bubbleCritical,
+    emojiOnly && styles.emojiBubble,
+    messageType === 'image' && !imageError && !isDeleted && styles.mediaBubble,
+    messageType === 'video' && !isDeleted && styles.mediaBubble,
+    isDeleted && styles.bubbleDeleted,
+  ];
+
+  const bubbleContent = (
+    <>
+      {isCritical && !isDeleted && (
+        <View style={styles.criticalBadge}>
+          <MaterialCommunityIcons
+            name="alert-circle"
+            size={12}
+            color={isSent ? 'rgba(255,255,255,0.85)' : colors.error}
+          />
+          <Text style={[styles.criticalLabel, isSent ? styles.criticalLabelSent : styles.criticalLabelReceived]}>Critical</Text>
+        </View>
+      )}
+      {showSender && !isSent && senderUsername ? (
+        <Text style={styles.senderName}>{senderUsername}</Text>
+      ) : null}
+      {renderContent()}
+      <View style={styles.meta}>
+        {isEncrypted && !isDeleted && (
+          <EncryptionBadge color={isSent ? 'rgba(255,255,255,0.6)' : colors.textTertiary} size={10} />
+        )}
+        <Text
+          style={[
+            styles.time,
+            // The deleted bubble has no filled background, so the light-on-primary
+            // timestamp would be invisible against it.
+            isSent && !isDeleted ? styles.timeSent : styles.timeReceived,
+          ]}
+        >
+          {formatTime(createdAt)}
+        </Text>
+      </View>
+    </>
+  );
+
   return (
     <Animated.View
       style={{
@@ -238,39 +298,18 @@ export default function MessageBubble({
       }}
     >
       <View style={[styles.row, isSent ? styles.rowSent : styles.rowReceived]}>
-        <View
-          style={[
-            styles.bubble,
-            isSent ? styles.bubbleSent : styles.bubbleReceived,
-            isCritical && styles.bubbleCritical,
-            emojiOnly && styles.emojiBubble,
-            messageType === 'image' && !imageError && styles.mediaBubble,
-            messageType === 'video' && styles.mediaBubble,
-          ]}
-        >
-          {isCritical && (
-            <View style={styles.criticalBadge}>
-              <MaterialCommunityIcons
-                name="alert-circle"
-                size={12}
-                color={isSent ? 'rgba(255,255,255,0.85)' : colors.error}
-              />
-              <Text style={[styles.criticalLabel, isSent ? styles.criticalLabelSent : styles.criticalLabelReceived]}>Critical</Text>
-            </View>
-          )}
-          {showSender && !isSent && senderUsername ? (
-            <Text style={styles.senderName}>{senderUsername}</Text>
-          ) : null}
-          {renderContent()}
-          <View style={styles.meta}>
-            {isEncrypted && (
-              <EncryptionBadge color={isSent ? 'rgba(255,255,255,0.6)' : colors.textTertiary} size={10} />
-            )}
-            <Text style={[styles.time, isSent ? styles.timeSent : styles.timeReceived]}>
-              {formatTime(createdAt)}
-            </Text>
-          </View>
-        </View>
+        {onLongPress ? (
+          <Pressable
+            style={bubbleStyle}
+            onLongPress={onLongPress}
+            delayLongPress={350}
+            accessibilityHint="Long press to delete this message"
+          >
+            {bubbleContent}
+          </Pressable>
+        ) : (
+          <View style={bubbleStyle}>{bubbleContent}</View>
+        )}
       </View>
     </Animated.View>
   );
@@ -305,6 +344,21 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
   bubbleCritical: {
     borderLeftWidth: 3,
     borderLeftColor: colors.error,
+  },
+  bubbleDeleted: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  deletedContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  deletedText: {
+    fontSize: typography.fontSizeMD,
+    fontStyle: 'italic',
+    color: colors.textTertiary,
   },
   criticalBadge: {
     flexDirection: 'row',

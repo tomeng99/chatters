@@ -48,6 +48,7 @@ interface Conversation {
     content: string;
     createdAt: number;
     isEncrypted: boolean;
+    deletedAt?: number | null;
     senderUsername: string;
     senderId?: string;
   } | null;
@@ -107,6 +108,14 @@ export default function ConversationsScreen({ navigation }: Props): React.JSX.El
     return unsub;
   }, [token]);
 
+  // A retraction can change the preview of a conversation we are looking at.
+  useEffect(() => {
+    const unsub = socketService.onAnyMessageDeleted(() => {
+      fetchConversations(false);
+    });
+    return unsub;
+  }, [token]);
+
   const fetchConversations = useCallback(
     async (showLoader = true) => {
       if (showLoader) setLoading(true);
@@ -135,7 +144,7 @@ export default function ConversationsScreen({ navigation }: Props): React.JSX.El
   const decryptPreview = useCallback(
     async (conv: Conversation): Promise<string | null> => {
       const msg = conv.lastMessage;
-      if (!msg || !msg.isEncrypted || !keyPair) return null;
+      if (!msg || msg.deletedAt || !msg.isEncrypted || !keyPair) return null;
 
       const payload = parseEncryptedPayload(msg.content);
       if (!payload) return null;
@@ -191,7 +200,7 @@ export default function ConversationsScreen({ navigation }: Props): React.JSX.El
       // from concurrent group-key fetches across many conversations
       for (const conv of conversations) {
         if (cancelled) break;
-        if (conv.lastMessage?.isEncrypted) {
+        if (conv.lastMessage?.isEncrypted && !conv.lastMessage.deletedAt) {
           const text = await decryptPreview(conv);
           if (text && !cancelled) previews[conv.id] = text;
         }
@@ -236,9 +245,11 @@ export default function ConversationsScreen({ navigation }: Props): React.JSX.El
             name={getConversationDisplayName(item)}
             lastMessage={
               item.lastMessage
-                ? item.lastMessage.isEncrypted
-                  ? decryptedPreviews[item.id] || '🔒 Encrypted message'
-                  : item.lastMessage.content
+                ? item.lastMessage.deletedAt
+                  ? 'Message deleted'
+                  : item.lastMessage.isEncrypted
+                    ? decryptedPreviews[item.id] || '🔒 Encrypted message'
+                    : item.lastMessage.content
                 : null
             }
             lastMessageAt={item.lastMessage?.createdAt ?? null}
