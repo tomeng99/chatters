@@ -43,6 +43,8 @@ import * as DocumentPicker from 'expo-document-picker';
 import { typography, spacing, borderRadius, shadows } from '../theme';
 import { useTheme } from '../context/ThemeContext';
 import ScreenContainer from '../components/ScreenContainer';
+import EmptyState from '../components/EmptyState';
+import { MessageListSkeleton } from '../components/LoadingSkeleton';
 import { API_BASE } from '../config';
 
 type Props = {
@@ -73,6 +75,7 @@ export default function ChatScreen({ navigation, route }: Props) {
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [sending, setSending] = useState(false);
   const [isCritical, setIsCritical] = useState(false);
   const [groupSharedKey, setGroupSharedKey] = useState<Uint8Array | null>(null);
@@ -370,11 +373,15 @@ export default function ChatScreen({ navigation, route }: Props) {
       const res = await fetch(`${API_BASE}/api/conversations/${conversationId}/messages`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) {
-        const data: Message[] = await res.json();
-        const decrypted = await Promise.all(data.map(decryptDisplayMessage));
-        setMessages(decrypted);
-      }
+      if (!res.ok) throw new Error(`Request failed with ${res.status}`);
+      const data: Message[] = await res.json();
+      const decrypted = await Promise.all(data.map(decryptDisplayMessage));
+      setMessages(decrypted);
+      setLoadFailed(false);
+    } catch {
+      // A failed history fetch used to render as "No messages yet", which reads as
+      // if the conversation had been wiped. Say what actually happened instead.
+      setLoadFailed(true);
     } finally {
       setLoading(false);
     }
@@ -638,8 +645,8 @@ export default function ChatScreen({ navigation, route }: Props) {
 
   if (loading) {
     return (
-      <ScreenContainer centered>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <ScreenContainer>
+        <MessageListSkeleton />
       </ScreenContainer>
     );
   }
@@ -677,9 +684,20 @@ export default function ChatScreen({ navigation, route }: Props) {
           }}
           contentContainerStyle={styles.messageList}
           ListEmptyComponent={
-            <View style={styles.emptyMessages}>
-              <Text style={styles.emptyText}>No messages yet. Say hello! 👋</Text>
-            </View>
+            loadFailed ? (
+              <EmptyState
+                icon="cloud-off-outline"
+                tone="error"
+                title="Couldn't load messages"
+                subtitle="This conversation's history is still on the server. Check your connection and try again."
+                actionLabel="Try again"
+                onAction={fetchMessages}
+              />
+            ) : (
+              <View style={styles.emptyMessages}>
+                <Text style={styles.emptyText}>No messages yet. Say hello! 👋</Text>
+              </View>
+            )
           }
           keyboardShouldPersistTaps="handled"
           onScroll={handleListScroll}

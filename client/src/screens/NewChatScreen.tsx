@@ -36,6 +36,7 @@ export default function NewChatScreen({ navigation }: Props) {
   const [results, setResults] = useState<SearchUser[]>([]);
   const [selected, setSelected] = useState<SearchUser[]>([]);
   const [searching, setSearching] = useState(false);
+  const [searchFailed, setSearchFailed] = useState(false);
   const [creating, setCreating] = useState(false);
   const [groupName, setGroupName] = useState('');
 
@@ -45,6 +46,7 @@ export default function NewChatScreen({ navigation }: Props) {
     async (q: string) => {
       if (!q.trim()) {
         setResults([]);
+        setSearchFailed(false);
         return;
       }
       setSearching(true);
@@ -53,10 +55,14 @@ export default function NewChatScreen({ navigation }: Props) {
           `${API_BASE}/api/users/search?q=${encodeURIComponent(q.trim())}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        if (res.ok) {
-          const data = await res.json();
-          setResults(data);
-        }
+        if (!res.ok) throw new Error(`Request failed with ${res.status}`);
+        const data = await res.json();
+        setResults(data);
+        setSearchFailed(false);
+      } catch {
+        // Otherwise a failed search is indistinguishable from "that username does not exist".
+        setResults([]);
+        setSearchFailed(true);
       } finally {
         setSearching(false);
       }
@@ -194,11 +200,19 @@ export default function NewChatScreen({ navigation }: Props) {
         }}
         ListEmptyComponent={
           query.trim() ? (
-            <View style={styles.empty}>
-              <Text style={styles.emptyText}>
-                {searching ? 'Searching...' : 'No users found'}
-              </Text>
-            </View>
+            searchFailed && !searching ? (
+              <View style={styles.empty}>
+                <MaterialCommunityIcons name="cloud-off-outline" size={28} color={colors.error} />
+                <Text style={styles.emptyErrorText}>Couldn't search right now</Text>
+                <Button title="Try again" variant="text" onPress={() => searchUsers(query)} />
+              </View>
+            ) : (
+              <View style={styles.empty}>
+                <Text style={styles.emptyText}>
+                  {searching ? 'Searching...' : 'No users found'}
+                </Text>
+              </View>
+            )
           ) : (
             <View style={styles.empty}>
               <Text style={styles.emptyText}>Search for people to start a conversation</Text>
@@ -323,10 +337,17 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
   empty: {
     padding: spacing.xl,
     alignItems: 'center',
+    gap: spacing.sm,
   },
   emptyText: {
     color: colors.textSecondary,
     fontSize: typography.fontSizeMD,
+    textAlign: 'center',
+  },
+  emptyErrorText: {
+    color: colors.text,
+    fontSize: typography.fontSizeMD,
+    fontWeight: typography.fontWeightMedium,
     textAlign: 'center',
   },
   footer: {
