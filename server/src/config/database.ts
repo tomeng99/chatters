@@ -154,6 +154,15 @@ export async function initializeDatabase() {
     await client.query(
       'CREATE INDEX IF NOT EXISTS idx_conversation_members_user_id ON conversation_members(user_id)'
     );
+    // Both hot message reads filter by conversation and order by created_at DESC:
+    // the newest-message lookup behind the conversation list, and the paged
+    // message history. conversation_id alone makes Postgres read every message in
+    // the conversation and sort it to return one page, so those reads get slower
+    // as a thread grows. The composite index serves the filter and the ordering
+    // together, so both stay proportional to the page size.
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_messages_conversation_created ON messages(conversation_id, created_at DESC)'
+    );
   } finally {
     client.release();
   }

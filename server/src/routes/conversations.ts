@@ -33,46 +33,63 @@ router.get('/', async (req: Request, res: Response) => {
       [req.user.id]
     );
 
-    const result = await Promise.all(
-      convsResult.rows.map(async (conv: {
+    const convs = convsResult.rows as Array<{
+      id: string;
+      name: string | null;
+      is_group: boolean;
+      created_at: number;
+      last_message_content: string | null;
+      last_message_at: number | null;
+      last_message_encrypted: boolean | null;
+      last_message_sender: string | null;
+      last_message_sender_id: string | null;
+    }>;
+
+    // Fetch members for all conversations in one query
+    const conversationIds = convs.map((c) => c.id);
+    const membersByConversation: Record<string, Array<{ id: string; username: string; publicKey: string | null }>> = {};
+    if (conversationIds.length > 0) {
+      const membersResult = await pool.query(
+        `SELECT cm.conversation_id, u.id, u.username, u.public_key AS "publicKey"
+         FROM conversation_members cm
+         JOIN users u ON u.id = cm.user_id
+         WHERE cm.conversation_id = ANY($1)
+         ORDER BY cm.conversation_id, u.username`,
+        [conversationIds]
+      );
+      for (const row of membersResult.rows as Array<{
+        conversation_id: string;
         id: string;
-        name: string | null;
-        is_group: boolean;
-        created_at: number;
-        last_message_content: string | null;
-        last_message_at: number | null;
-        last_message_encrypted: boolean | null;
-        last_message_sender: string | null;
-        last_message_sender_id: string | null;
-      }) => {
-        const membersResult = await pool.query(
-          `SELECT u.id, u.username, u.public_key AS "publicKey"
-           FROM conversation_members cm
-           JOIN users u ON u.id = cm.user_id
-           WHERE cm.conversation_id = $1`,
-          [conv.id]
-        );
+        username: string;
+        publicKey: string | null;
+      }>) {
+        if (!membersByConversation[row.conversation_id]) membersByConversation[row.conversation_id] = [];
+        membersByConversation[row.conversation_id].push({
+          id: row.id,
+          username: row.username,
+          publicKey: row.publicKey,
+        });
+      }
+    }
 
-        return {
-          id: conv.id,
-          name: conv.name,
-          isGroup: Boolean(conv.is_group),
-          createdAt: conv.created_at,
-          members: membersResult.rows,
-          lastMessage: conv.last_message_content
-            ? {
-                content: conv.last_message_content,
-                createdAt: conv.last_message_at,
-                isEncrypted: Boolean(conv.last_message_encrypted),
-                senderUsername: conv.last_message_sender,
-                senderId: conv.last_message_sender_id,
-              }
-            : null,
-        };
-      })
+    res.json(
+      convs.map((conv) => ({
+        id: conv.id,
+        name: conv.name,
+        isGroup: Boolean(conv.is_group),
+        createdAt: conv.created_at,
+        members: membersByConversation[conv.id] || [],
+        lastMessage: conv.last_message_content
+          ? {
+              content: conv.last_message_content,
+              createdAt: conv.last_message_at,
+              isEncrypted: Boolean(conv.last_message_encrypted),
+              senderUsername: conv.last_message_sender,
+              senderId: conv.last_message_sender_id,
+            }
+          : null,
+      }))
     );
-
-    res.json(result);
   } catch (err) {
     console.error('Get conversations error:', err);
     res.status(500).json({ error: 'Internal server error' });
