@@ -8,6 +8,11 @@ on:
     branches:
       - main
 
+# Both jobs only read the checkout and install from npm; nothing here writes
+# to the repo, publishes a package or talks to the deployment.
+permissions:
+  contents: read
+
 # A new push supersedes the run still going for the same branch.
 concurrency:
   group: ci-${{ github.ref }}
