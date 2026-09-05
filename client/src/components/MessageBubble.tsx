@@ -39,6 +39,32 @@ function hasUrls(text: string): boolean {
   return URL_REGEX.test(text);
 }
 
+// Joins the parts of a spoken message description, dropping the ones that don't
+// apply and not doubling up punctuation when a part already ends a sentence.
+function speak(...parts: (string | false | null | undefined)[]): string {
+  return parts.reduce<string>((acc, part) => {
+    if (!part) return acc;
+    if (!acc) return part;
+    return /[.!?]$/.test(acc) ? `${acc} ${part}` : `${acc}. ${part}`;
+  }, '');
+}
+
+// Media messages carry a URL as their content, which is useless read aloud, so
+// name the kind of attachment instead.
+function describeMedia(
+  messageType: 'image' | 'video' | 'file',
+  fileName: string | null | undefined,
+  imageError: boolean
+): string {
+  if (messageType === 'image') {
+    return imageError ? 'a photo that could not be loaded' : 'a photo';
+  }
+  if (messageType === 'video') {
+    return fileName ? `a video, ${fileName}` : 'a video';
+  }
+  return fileName ? `a file, ${fileName}` : 'a file';
+}
+
 type BubbleStyles = ReturnType<typeof createStyles>;
 
 function renderTextWithLinks(text: string, isSent: boolean, styles: BubbleStyles) {
@@ -61,6 +87,7 @@ function renderTextWithLinks(text: string, isSent: boolean, styles: BubbleStyles
         key={`l-${match.index}`}
         style={[styles.link, isSent ? styles.linkSent : styles.linkReceived]}
         onPress={() => Linking.openURL(url)}
+        accessibilityRole="link"
       >
         {url}
       </Text>
@@ -123,6 +150,29 @@ export default function MessageBubble({
   const openViewer = useCallback(() => setViewerVisible(true), []);
   const closeViewer = useCallback(() => setViewerVisible(false), []);
 
+  // Who sent it. The visual left/right split means nothing to a screen reader,
+  // so every message has to say so out loud.
+  const speaker = isSent ? 'You' : senderUsername || 'Them';
+  // The lock icon and the timestamp are read as a stray glyph and a bare number
+  // otherwise, so they are hidden below and spoken as part of the message.
+  const metaLabel = speak(isEncrypted && 'Encrypted', formatTime(createdAt));
+  // Only names the attachment: the "Critical" badge and the meta row below are
+  // read as their own elements, so repeating them here would say everything twice.
+  const mediaLabel =
+    messageType === 'text'
+      ? null
+      : `${speaker} sent ${describeMedia(messageType, fileName, imageError)}`;
+  // A plain text bubble reads best as a single sentence. One containing links has
+  // to stay un-grouped, or the links inside it stop being reachable as their own
+  // targets. Grouping applies on iOS and Android; on web the DOM order already
+  // reads as continuous prose.
+  const groupAsOneNode = messageType === 'text' && !containsLinks;
+  const bubbleLabel = speak(
+    `${speaker}: ${content}`,
+    isCritical && 'Marked critical',
+    metaLabel
+  );
+
   const renderContent = () => {
     if (messageType === 'image' && !imageError) {
       return (
@@ -130,6 +180,9 @@ export default function MessageBubble({
           <TouchableOpacity
             activeOpacity={0.9}
             onPress={openViewer}
+            accessibilityRole="button"
+            accessibilityLabel={mediaLabel ?? undefined}
+            accessibilityHint="Opens the photo full screen"
           >
             <Image
               source={{ uri: resolveUrl(content) }}
@@ -154,9 +207,12 @@ export default function MessageBubble({
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={openViewer}
+            accessibilityRole="button"
+            accessibilityLabel={mediaLabel ?? undefined}
+            accessibilityHint="Opens the video full screen"
           >
             <View style={styles.videoPreview}>
-              <View style={styles.videoPlayOverlay}>
+              <View style={styles.videoPlayOverlay} aria-hidden>
                 <MaterialCommunityIcons name="play-circle" size={48} color="#FFFFFF" />
               </View>
               {fileName ? (
@@ -182,6 +238,9 @@ export default function MessageBubble({
           activeOpacity={0.8}
           onPress={() => Linking.openURL(resolveUrl(content))}
           style={styles.fileContainer}
+          accessibilityRole="button"
+          accessibilityLabel={mediaLabel ?? undefined}
+          accessibilityHint="Opens the file"
         >
           <MaterialCommunityIcons
             name="file-document-outline"
@@ -201,11 +260,12 @@ export default function MessageBubble({
     // Fallback for image errors
     if (messageType === 'image' && imageError) {
       return (
-        <View style={styles.imageErrorContainer}>
+        <View style={styles.imageErrorContainer} accessible accessibilityLabel={mediaLabel ?? undefined}>
           <MaterialCommunityIcons
             name="image-off-outline"
             size={20}
             color={isSent ? 'rgba(255,255,255,0.7)' : colors.textSecondary}
+            aria-hidden
           />
           <Text style={[styles.content, isSent ? styles.contentSent : styles.contentReceived, { marginLeft: spacing.xs }]}>
             Image could not be loaded
@@ -239,6 +299,8 @@ export default function MessageBubble({
     >
       <View style={[styles.row, isSent ? styles.rowSent : styles.rowReceived]}>
         <View
+          accessible={groupAsOneNode}
+          accessibilityLabel={groupAsOneNode ? bubbleLabel : undefined}
           style={[
             styles.bubble,
             isSent ? styles.bubbleSent : styles.bubbleReceived,
@@ -254,6 +316,7 @@ export default function MessageBubble({
                 name="alert-circle"
                 size={12}
                 color={isSent ? 'rgba(255,255,255,0.85)' : colors.error}
+                aria-hidden
               />
               <Text style={[styles.criticalLabel, isSent ? styles.criticalLabelSent : styles.criticalLabelReceived]}>Critical</Text>
             </View>
@@ -262,7 +325,7 @@ export default function MessageBubble({
             <Text style={styles.senderName}>{senderUsername}</Text>
           ) : null}
           {renderContent()}
-          <View style={styles.meta}>
+          <View style={styles.meta} accessible accessibilityLabel={metaLabel}>
             {isEncrypted && (
               <EncryptionBadge color={isSent ? 'rgba(255,255,255,0.6)' : colors.textTertiary} size={10} />
             )}

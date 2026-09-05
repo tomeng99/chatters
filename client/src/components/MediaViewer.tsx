@@ -71,6 +71,8 @@ export default function MediaViewer({ visible, uri, mediaType, onClose }: MediaV
           onPress={handleClose}
           activeOpacity={0.7}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityRole="button"
+          accessibilityLabel={mediaType === 'video' ? 'Close video' : 'Close photo'}
         >
           <MaterialCommunityIcons name="close" size={28} color="#FFFFFF" />
         </TouchableOpacity>

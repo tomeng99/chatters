@@ -14,8 +14,11 @@ export default function EncryptionBadge({
 }: EncryptionBadgeProps) {
   const { colors } = useTheme();
   const resolvedColor = color ?? colors.success;
+  // Decorative: every place this badge is used already says "encrypted" in the
+  // surrounding text or accessibility label, and the bare icon glyph is read out
+  // as a stray character otherwise.
   return (
-    <View style={styles.container}>
+    <View style={styles.container} aria-hidden>
       <MaterialCommunityIcons name="lock" size={size} color={resolvedColor} />
     </View>
   );
