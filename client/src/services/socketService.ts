@@ -11,6 +11,8 @@ interface Message {
   taggedUserIds?: string[];
   messageType?: 'text' | 'image' | 'video' | 'file';
   fileName?: string | null;
+  // Unix seconds when the sender retracted this message; null/absent while live.
+  deletedAt?: number | null;
   createdAt: number;
   sender: { id: string; username: string };
 }
@@ -34,8 +36,15 @@ interface TypingData {
   conversationId: string;
 }
 
+interface MessageDeletedData {
+  messageId: string;
+  conversationId: string;
+  deletedAt: number;
+}
+
 type TypingHandler = (data: TypingData) => void;
 type NotificationHandler = (data: NotificationData) => void;
+type MessageDeletedHandler = (data: MessageDeletedData) => void;
 
 class SocketService {
   private socket: Socket | null = null;
@@ -43,6 +52,8 @@ class SocketService {
   private globalMessageHandlers: MessageHandler[] = [];
   private typingHandlers: Map<string, TypingHandler[]> = new Map();
   private notificationHandlers: NotificationHandler[] = [];
+  private messageDeletedHandlers: Map<string, MessageDeletedHandler[]> = new Map();
+  private globalMessageDeletedHandlers: MessageDeletedHandler[] = [];
 
   connect(token: string): void {
     if (this.socket?.connected) return;
@@ -79,6 +90,13 @@ class SocketService {
       handlers.forEach((h) => h(data));
     });
 
+    this.socket.on('message_deleted', (data: MessageDeletedData) => {
+      if (!data?.conversationId) return;
+      const handlers = this.messageDeletedHandlers.get(data.conversationId) || [];
+      handlers.forEach((h) => h(data));
+      this.globalMessageDeletedHandlers.forEach((h) => h(data));
+    });
+
     this.socket.on('notification', (data: NotificationData) => {
       this.notificationHandlers.forEach((h) => h(data));
     });
@@ -91,6 +109,8 @@ class SocketService {
     this.globalMessageHandlers = [];
     this.typingHandlers.clear();
     this.notificationHandlers = [];
+    this.messageDeletedHandlers.clear();
+    this.globalMessageDeletedHandlers = [];
   }
 
   joinConversation(conversationId: string): void {
@@ -116,6 +136,22 @@ class SocketService {
         'send_message',
         { conversationId, content, iv, isEncrypted, isCritical, taggedUserIds, messageType, fileName },
         (response: { success?: boolean; message?: Message; error?: string }) => {
+          resolve({ ...response, success: response.success ?? false });
+        }
+      );
+    });
+  }
+
+  deleteMessage(messageId: string): Promise<{ success: boolean; error?: string }> {
+    return new Promise((resolve) => {
+      if (!this.socket?.connected) {
+        resolve({ success: false, error: 'Not connected' });
+        return;
+      }
+      this.socket.emit(
+        'delete_message',
+        { messageId },
+        (response: { success?: boolean; error?: string }) => {
           resolve({ ...response, success: response.success ?? false });
         }
       );
@@ -159,6 +195,28 @@ class SocketService {
     };
   }
 
+  onMessageDeleted(conversationId: string, handler: MessageDeletedHandler): () => void {
+    const handlers = this.messageDeletedHandlers.get(conversationId) || [];
+    handlers.push(handler);
+    this.messageDeletedHandlers.set(conversationId, handlers);
+    return () => {
+      const current = this.messageDeletedHandlers.get(conversationId) || [];
+      this.messageDeletedHandlers.set(
+        conversationId,
+        current.filter((h) => h !== handler)
+      );
+    };
+  }
+
+  onAnyMessageDeleted(handler: MessageDeletedHandler): () => void {
+    this.globalMessageDeletedHandlers.push(handler);
+    return () => {
+      this.globalMessageDeletedHandlers = this.globalMessageDeletedHandlers.filter(
+        (h) => h !== handler
+      );
+    };
+  }
+
   onNotification(handler: NotificationHandler): () => void {
     this.notificationHandlers.push(handler);
     return () => {
@@ -172,4 +230,4 @@ class SocketService {
 }
 
 export const socketService = new SocketService();
-export type { Message, NotificationData, TypingData };
+export type { Message, NotificationData, TypingData, MessageDeletedData };
