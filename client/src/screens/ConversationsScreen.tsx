@@ -3,7 +3,6 @@ import {
   FlatList,
   StyleSheet,
   Pressable,
-  ActivityIndicator,
   RefreshControl,
   Platform,
 } from 'react-native';
@@ -19,6 +18,7 @@ import { requestNotificationPermission, showNotification } from '../services/not
 import ConversationItem from '../components/ConversationItem';
 import ScreenContainer from '../components/ScreenContainer';
 import EmptyState from '../components/EmptyState';
+import { ConversationListSkeleton } from '../components/LoadingSkeleton';
 import {
   decryptMessage,
   decryptGroupMessage,
@@ -62,6 +62,7 @@ export default function ConversationsScreen({ navigation }: Props): React.JSX.El
   const [decryptedPreviews, setDecryptedPreviews] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
     navigation.setOptions({
@@ -123,10 +124,14 @@ export default function ConversationsScreen({ navigation }: Props): React.JSX.El
         const res = await fetch(`${API_BASE}/api/conversations`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (res.ok) {
-          const data = await res.json();
-          setConversations(data);
-        }
+        if (!res.ok) throw new Error(`Request failed with ${res.status}`);
+        const data = await res.json();
+        setConversations(data);
+        setLoadFailed(false);
+      } catch {
+        // Without this the list falls through to the empty state, which tells the
+        // user they have no conversations when really we just could not reach the server.
+        setLoadFailed(true);
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -229,8 +234,8 @@ export default function ConversationsScreen({ navigation }: Props): React.JSX.El
 
   if (loading) {
     return (
-      <ScreenContainer centered>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <ScreenContainer>
+        <ConversationListSkeleton />
       </ScreenContainer>
     );
   }
@@ -259,11 +264,22 @@ export default function ConversationsScreen({ navigation }: Props): React.JSX.El
           />
         )}
         ListEmptyComponent={
-          <EmptyState
-            icon="chat-outline"
-            title="No conversations yet"
-            subtitle="Start chatting by tapping the button below"
-          />
+          loadFailed ? (
+            <EmptyState
+              icon="cloud-off-outline"
+              tone="error"
+              title="Can't reach the server"
+              subtitle="Your conversations are still there. Check your connection and try again."
+              actionLabel="Try again"
+              onAction={() => fetchConversations()}
+            />
+          ) : (
+            <EmptyState
+              icon="chat-outline"
+              title="No conversations yet"
+              subtitle="Start chatting by tapping the button below"
+            />
+          )
         }
         refreshControl={
           <RefreshControl
