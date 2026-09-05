@@ -94,6 +94,22 @@ podman compose down
 
 ---
 
+## Checks
+
+Both workspaces are type-checked and tested on every pull request by
+`.github/workflows/ci.yml`. The same checks run locally:
+
+```bash
+cd server && npm run build && npm test    # tsc + auth middleware tests
+cd client && npm run typecheck && npm test # tsc + E2E encryption tests
+```
+
+> **Note:** `npm test` needs Node 22+ — Node 20's test runner does not accept
+> glob patterns. The Docker images still build on Node 20; only the tests
+> require the newer runtime.
+
+---
+
 ## Environment Variables (server/.env)
 
 | Variable              | Default                             | Description                    |
