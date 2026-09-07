@@ -5,6 +5,7 @@ import { typography, spacing, borderRadius, animations } from '../theme';
 import { useTheme } from '../context/ThemeContext';
 import EncryptionBadge from './EncryptionBadge';
 import { API_BASE } from '../config';
+import { resolveMediaUrl } from '../utils/mediaUrl';
 import MediaViewer from './MediaViewer';
 
 interface MessageBubbleProps {
@@ -42,6 +43,7 @@ function hasUrls(text: string): boolean {
 }
 
 type BubbleStyles = ReturnType<typeof createStyles>;
+type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
 function renderTextWithLinks(text: string, isSent: boolean, styles: BubbleStyles) {
   const parts: React.ReactNode[] = [];
@@ -119,13 +121,28 @@ export default function MessageBubble({
     ]).start();
   }, []);
 
-  const resolveUrl = useCallback((url: string) => {
-    if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    return `${API_BASE}${url}`;
-  }, []);
+  // null for anything that is not one of our own uploads, which is the only
+  // thing a media message legitimately carries. See utils/mediaUrl.
+  const mediaUrl = useMemo(
+    () => (messageType === 'text' ? null : resolveMediaUrl(content, API_BASE)),
+    [content, messageType]
+  );
 
   const openViewer = useCallback(() => setViewerVisible(true), []);
   const closeViewer = useCallback(() => setViewerVisible(false), []);
+
+  const renderUnavailable = (icon: IconName, label: string) => (
+    <View style={styles.imageErrorContainer}>
+      <MaterialCommunityIcons
+        name={icon}
+        size={20}
+        color={isSent ? 'rgba(255,255,255,0.7)' : colors.textSecondary}
+      />
+      <Text style={[styles.content, isSent ? styles.contentSent : styles.contentReceived, { marginLeft: spacing.xs }]}>
+        {label}
+      </Text>
+    </View>
+  );
 
   const renderContent = () => {
     // A retracted message keeps its place in the thread, but nothing of what it said.
@@ -138,7 +155,10 @@ export default function MessageBubble({
       );
     }
 
-    if (messageType === 'image' && !imageError) {
+    if (messageType === 'image') {
+      if (!mediaUrl || imageError) {
+        return renderUnavailable('image-off-outline', 'Image could not be loaded');
+      }
       return (
         <>
           <TouchableOpacity
@@ -146,7 +166,7 @@ export default function MessageBubble({
             onPress={openViewer}
           >
             <Image
-              source={{ uri: resolveUrl(content) }}
+              source={{ uri: mediaUrl }}
               style={styles.mediaImage}
               resizeMode="cover"
               onError={() => setImageError(true)}
@@ -154,7 +174,7 @@ export default function MessageBubble({
           </TouchableOpacity>
           <MediaViewer
             visible={viewerVisible}
-            uri={resolveUrl(content)}
+            uri={mediaUrl}
             mediaType="image"
             onClose={closeViewer}
           />
@@ -163,6 +183,9 @@ export default function MessageBubble({
     }
 
     if (messageType === 'video') {
+      if (!mediaUrl) {
+        return renderUnavailable('video-off-outline', 'Video could not be loaded');
+      }
       return (
         <>
           <TouchableOpacity
@@ -182,7 +205,7 @@ export default function MessageBubble({
           </TouchableOpacity>
           <MediaViewer
             visible={viewerVisible}
-            uri={resolveUrl(content)}
+            uri={mediaUrl}
             mediaType="video"
             onClose={closeViewer}
           />
@@ -191,10 +214,13 @@ export default function MessageBubble({
     }
 
     if (messageType === 'file') {
+      if (!mediaUrl) {
+        return renderUnavailable('file-alert-outline', 'File could not be loaded');
+      }
       return (
         <TouchableOpacity
           activeOpacity={0.8}
-          onPress={() => Linking.openURL(resolveUrl(content))}
+          onPress={() => Linking.openURL(mediaUrl)}
           style={styles.fileContainer}
         >
           <MaterialCommunityIcons
@@ -209,22 +235,6 @@ export default function MessageBubble({
             {fileName || 'File'}
           </Text>
         </TouchableOpacity>
-      );
-    }
-
-    // Fallback for image errors
-    if (messageType === 'image' && imageError) {
-      return (
-        <View style={styles.imageErrorContainer}>
-          <MaterialCommunityIcons
-            name="image-off-outline"
-            size={20}
-            color={isSent ? 'rgba(255,255,255,0.7)' : colors.textSecondary}
-          />
-          <Text style={[styles.content, isSent ? styles.contentSent : styles.contentReceived, { marginLeft: spacing.xs }]}>
-            Image could not be loaded
-          </Text>
-        </View>
       );
     }
 
@@ -251,8 +261,10 @@ export default function MessageBubble({
     isSent ? styles.bubbleSent : styles.bubbleReceived,
     isCritical && !isDeleted && styles.bubbleCritical,
     emojiOnly && styles.emojiBubble,
-    messageType === 'image' && !imageError && !isDeleted && styles.mediaBubble,
-    messageType === 'video' && !isDeleted && styles.mediaBubble,
+    // Only the bubbles that actually render media get the flush media padding;
+    // an unavailable state is text and keeps the normal insets.
+    messageType === 'image' && mediaUrl && !imageError && !isDeleted && styles.mediaBubble,
+    messageType === 'video' && mediaUrl && !isDeleted && styles.mediaBubble,
     isDeleted && styles.bubbleDeleted,
   ];
 
