@@ -46,6 +46,11 @@ type TypingHandler = (data: TypingData) => void;
 type NotificationHandler = (data: NotificationData) => void;
 type MessageDeletedHandler = (data: MessageDeletedData) => void;
 
+// A socket can report `connected` while the network under it is already gone, in
+// which case the server's acknowledgement never arrives and the caller waits for
+// ever. Give up after this long and report a failure the UI can actually show.
+const ACK_TIMEOUT_MS = 10000;
+
 class SocketService {
   private socket: Socket | null = null;
   private messageHandlers: Map<string, MessageHandler[]> = new Map();
@@ -132,11 +137,15 @@ class SocketService {
         resolve({ success: false, error: 'Not connected' });
         return;
       }
-      this.socket.emit(
+      this.socket.timeout(ACK_TIMEOUT_MS).emit(
         'send_message',
         { conversationId, content, iv, isEncrypted, isCritical, taggedUserIds, messageType, fileName },
-        (response: { success?: boolean; message?: Message; error?: string }) => {
-          resolve({ ...response, success: response.success ?? false });
+        (timedOut: Error | null, response?: { success?: boolean; message?: Message; error?: string }) => {
+          if (timedOut) {
+            resolve({ success: false, error: 'Timed out' });
+            return;
+          }
+          resolve({ ...response, success: response?.success ?? false });
         }
       );
     });
@@ -148,11 +157,15 @@ class SocketService {
         resolve({ success: false, error: 'Not connected' });
         return;
       }
-      this.socket.emit(
+      this.socket.timeout(ACK_TIMEOUT_MS).emit(
         'delete_message',
         { messageId },
-        (response: { success?: boolean; error?: string }) => {
-          resolve({ ...response, success: response.success ?? false });
+        (timedOut: Error | null, response?: { success?: boolean; error?: string }) => {
+          if (timedOut) {
+            resolve({ success: false, error: 'Timed out' });
+            return;
+          }
+          resolve({ ...response, success: response?.success ?? false });
         }
       );
     });

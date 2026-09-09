@@ -60,6 +60,35 @@ interface DisplayMessage extends Message {
 
 type MessageType = 'text' | 'image' | 'video' | 'file';
 
+// What we need to try a failed send again. A text send restores itself into the
+// composer, so retrying just re-reads it; a media send has already been uploaded,
+// so we keep the URL rather than making the user pick the file a second time.
+type FailedSend =
+  | { kind: 'text'; draftRestored: boolean }
+  | { kind: 'media'; url: string; messageType: MessageType; fileName: string };
+
+const FAILED_SEND_NOUN: Record<MessageType, string> = {
+  text: 'Message',
+  image: 'Photo',
+  video: 'Video',
+  file: 'File',
+};
+
+function describeFailedSend(failure: FailedSend): string {
+  if (failure.kind === 'media') {
+    return `${FAILED_SEND_NOUN[failure.messageType]} not sent. Check your connection and try again.`;
+  }
+  return failure.draftRestored
+    ? 'Message not sent. Your text is back in the box below.'
+    : "Message not sent. You'd started a new draft, so it wasn't put back.";
+}
+
+// Only offer a retry when we still hold what was being sent. If the user started a
+// new draft, the failed text is gone and a "Retry" button would send the new one.
+function canRetryFailedSend(failure: FailedSend): boolean {
+  return failure.kind === 'media' || failure.draftRestored;
+}
+
 // Minimum gap between outgoing "still typing" pings, so a fast typist sends one
 // socket event every couple of seconds instead of one per keystroke.
 const TYPING_THROTTLE_MS = 2000;
@@ -77,6 +106,8 @@ export default function ChatScreen({ navigation, route }: Props) {
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(true);
+  // Set when a send came back unacknowledged, so the composer can say so.
+  const [sendError, setSendError] = useState<FailedSend | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [sending, setSending] = useState(false);
   const [isCritical, setIsCritical] = useState(false);
@@ -88,6 +119,9 @@ export default function ChatScreen({ navigation, route }: Props) {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState(false);
   const flatListRef = useRef<FlatList>(null);
+  // Mirrors `inputText` so a send that fails after an await can tell whether the
+  // user has started a new draft in the meantime without closing over stale state.
+  const inputTextRef = useRef('');
   const isNearBottomRef = useRef(true);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Timestamp of our last outgoing "typing: true"; 0 means we are not typing.
@@ -474,11 +508,25 @@ export default function ChatScreen({ navigation, route }: Props) {
     }
   }, [messages.length]);
 
+  // Put a failed message back in the composer so the user's words are never lost.
+  // If they have already started typing something new, their draft wins — we would
+  // rather leave the old text behind than overwrite what they are working on — and
+  // the banner says so instead of claiming the text is waiting for them.
+  const restoreFailedDraft = useCallback((text: string, wasCritical: boolean): boolean => {
+    if (inputTextRef.current.trim()) return false;
+    inputTextRef.current = text;
+    setInputText(text);
+    if (wasCritical) setIsCritical(true);
+    return true;
+  }, []);
+
   const handleSend = async () => {
     const text = inputText.trim();
     if (!text || sending) return;
+    inputTextRef.current = '';
     setInputText('');
     setSending(true);
+    setSendError(null);
     stopTyping();
 
     const messageCritical = isCritical;
@@ -529,7 +577,14 @@ export default function ChatScreen({ navigation, route }: Props) {
           if (prev.some((m) => m.id === displayMsg.id)) return prev;
           return [...prev, displayMsg];
         });
+      } else {
+        // The send was never acknowledged. This used to do nothing at all: the
+        // composer had already been cleared, so the message simply vanished and
+        // the user was left believing it had gone out.
+        setSendError({ kind: 'text', draftRestored: restoreFailedDraft(text, messageCritical) });
       }
+    } catch {
+      setSendError({ kind: 'text', draftRestored: restoreFailedDraft(text, messageCritical) });
     } finally {
       setSending(false);
     }
@@ -543,7 +598,11 @@ export default function ChatScreen({ navigation, route }: Props) {
   };
 
   const handleInputChange = (text: string) => {
+    inputTextRef.current = text;
     setInputText(text);
+    // Editing the restored text is the user moving on; stop nagging about the
+    // send that failed. A media failure has nothing to do with the composer.
+    setSendError((prev) => (prev?.kind === 'text' ? null : prev));
 
     const now = Date.now();
     if (now - lastTypingEmitRef.current > TYPING_THROTTLE_MS) {
@@ -605,6 +664,7 @@ export default function ChatScreen({ navigation, route }: Props) {
 
   const sendMediaMessage = useCallback(async (fileUrl: string, messageType: MessageType, fileName: string) => {
     setSending(true);
+    setSendError(null);
     try {
       let content = fileUrl;
       let iv: string | null = null;
@@ -647,11 +707,28 @@ export default function ChatScreen({ navigation, route }: Props) {
           if (prev.some((m) => m.id === displayMsg.id)) return prev;
           return [...prev, displayMsg];
         });
+      } else {
+        // The bytes are already uploaded, so keep the URL and let the user retry
+        // the send rather than sending them back to the picker.
+        setSendError({ kind: 'media', url: fileUrl, messageType, fileName });
       }
+    } catch {
+      setSendError({ kind: 'media', url: fileUrl, messageType, fileName });
     } finally {
       setSending(false);
     }
   }, [conversationId, keyPair, isGroup, groupSharedKey, getOrCreateGroupSharedKey, getUserPublicKey, user?.id, members]);
+
+  // Deliberately not memoized: it calls `handleSend`, which reads the live
+  // composer text, and a memoized wrapper would hold on to a stale copy of it.
+  const retryFailedSend = () => {
+    if (!sendError || sending) return;
+    if (sendError.kind === 'media') {
+      sendMediaMessage(sendError.url, sendError.messageType, sendError.fileName);
+    } else {
+      handleSend();
+    }
+  };
 
   const handlePickImage = useCallback(async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -782,6 +859,27 @@ export default function ChatScreen({ navigation, route }: Props) {
       <TypingIndicator usernames={typingUsernames} showNames={isGroup} />
 
       <View style={[styles.inputBarContainer, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
+        {sendError && (
+          <View style={styles.sendErrorBar} accessibilityLiveRegion="polite">
+            <MaterialCommunityIcons name="alert-circle-outline" size={16} color={colors.error} />
+            <Text style={styles.sendErrorText}>{describeFailedSend(sendError)}</Text>
+            {canRetryFailedSend(sendError) && (
+              <Pressable
+                onPress={retryFailedSend}
+                disabled={sending}
+                hitSlop={8}
+                style={({ pressed }) => [
+                  styles.sendErrorRetry,
+                  pressed && styles.sendErrorRetryPressed,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Retry sending"
+              >
+                <Text style={styles.sendErrorRetryText}>Retry</Text>
+              </Pressable>
+            )}
+          </View>
+        )}
         {showAttachMenu && (
           <View style={styles.attachMenu}>
             <Pressable style={({ pressed }) => [styles.attachOption, pressed && styles.attachOptionPressed]} onPress={() => { setShowAttachMenu(false); handlePickImage(); }}>
@@ -918,6 +1016,40 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
   emptyText: {
     fontSize: typography.fontSizeMD,
     color: colors.textSecondary,
+  },
+  sendErrorBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    backgroundColor: colors.error + '15',
+    gap: spacing.sm,
+  },
+  sendErrorText: {
+    flex: 1,
+    // Body copy stays on `text`, not `error`: red on the tinted bar is only
+    // 3.4:1 in the light theme, where this is 16:1. The tint and the icon
+    // carry the alarm; the sentence only has to be readable.
+    fontSize: typography.fontSizeSM,
+    color: colors.text,
+    fontWeight: typography.fontWeightMedium,
+  },
+  sendErrorRetry: {
+    minHeight: 32,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.sm + 2,
+    borderRadius: borderRadius.sm,
+    backgroundColor: colors.surface,
+  },
+  sendErrorRetryPressed: {
+    opacity: 0.7,
+  },
+  sendErrorRetryText: {
+    fontSize: typography.fontSizeSM,
+    fontWeight: typography.fontWeightSemiBold,
+    color: colors.primary,
   },
   inputBar: {
     flexDirection: 'row',
