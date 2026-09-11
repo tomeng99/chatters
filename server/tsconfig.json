@@ -3,6 +3,13 @@
     "target": "ES2020",
     "module": "commonjs",
     "lib": ["ES2020"],
+    // Node's globals (Buffer, console, process) are not in "lib", so they only
+    // reach a file through @types/node. A whole-project `tsc` picks that up by
+    // accident, because something in src imports a package that references it.
+    // A test file compiled on its own by ts-node has no such luck: testing a
+    // module that imports nothing but itself fails on "Cannot find name
+    // 'Buffer'". Requesting the types explicitly makes both programs the same.
+    "types": ["node"],
     "outDir": "./dist",
     "rootDir": "./src",
     "strict": true,
